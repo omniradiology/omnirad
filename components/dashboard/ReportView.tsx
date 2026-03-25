@@ -23,12 +23,20 @@ interface ReportViewProps {
 export function ReportView({ report, onNewPatient, reportId, imagePreview, onStatusChange }: ReportViewProps) {
     const [currentUser, setCurrentUser] = React.useState({ name: "Dr. User", role: "Doctor" });
 
-    // Local state for the report footer so UI re-renders immediately on approve/reject
+    // Local state for the report footer and collaboration so UI re-renders immediately
     const [footer, setFooter] = React.useState({ ...report.report_footer });
+    const [collaboration, setCollaboration] = React.useState({
+        comments: report.collaboration?.comments || [],
+        logs: report.collaboration?.logs || []
+    });
 
-    // Keep footer in sync if a new report is passed in
+    // Keep state in sync if a completely new report is passed in
     React.useEffect(() => {
         setFooter({ ...report.report_footer });
+        setCollaboration({
+            comments: report.collaboration?.comments || [],
+            logs: report.collaboration?.logs || []
+        });
     }, [report]);
 
     React.useEffect(() => {
@@ -56,8 +64,8 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
             timestamp: new Date().toISOString()
         };
 
-        const updatedComments = [...(report.collaboration?.comments || []), newComment];
-        const updatedLogs = [...(report.collaboration?.logs || []), {
+        const updatedComments = [...collaboration.comments, newComment];
+        const updatedLogs = [...collaboration.logs, {
             id: Date.now().toString() + "_log",
             action: "Comment Added",
             user: currentUser.name,
@@ -73,7 +81,7 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
         });
 
         // Optimistically update local state
-        report.collaboration = { comments: updatedComments, logs: updatedLogs };
+        setCollaboration({ comments: updatedComments, logs: updatedLogs });
 
         // Notify parent
         if (onStatusChange) onStatusChange();
@@ -85,6 +93,19 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
         const success = await updateReportStatus(reportId, 'Pending');
         if (success) {
             setFooter(prev => ({ ...prev, report_status: 'Pending', rejection_reason: undefined }));
+
+            // Add audit log optimistically
+            setCollaboration(prev => ({
+                ...prev,
+                logs: [...prev.logs, {
+                    id: `log_${Date.now()}`,
+                    action: "Status Changed to Pending",
+                    user: currentUser.name,
+                    timestamp: new Date().toISOString(),
+                    details: "Status reset"
+                }]
+            }));
+
             if (onStatusChange) onStatusChange();
         }
     };
@@ -154,6 +175,28 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
         const success = await updateReportStatus(reportId, 'Rejected', { rejectionReason: reason, notes: comment });
         if (success) {
             setFooter(prev => ({ ...prev, report_status: 'Rejected', rejection_reason: reason }));
+
+            // Optmistic logs and comments updates
+            const timestamp = new Date().toISOString();
+            const newLogs = [...collaboration.logs, {
+                id: `log_${Date.now()}`,
+                action: "Status Changed to Rejected",
+                user: currentUser.name,
+                timestamp,
+                details: `Reason: ${reason}`
+            }];
+            let newComments = [...collaboration.comments];
+            if (comment) {
+                newComments.push({
+                    id: `comment_${Date.now()}`,
+                    author: currentUser.name,
+                    role: currentUser.role,
+                    text: comment,
+                    timestamp
+                });
+            }
+            setCollaboration({ logs: newLogs, comments: newComments });
+
             setIsRejectModalOpen(false);
             if (onStatusChange) onStatusChange();
         }
@@ -163,13 +206,35 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
         if (!reportId) return;
         const success = await updateReportStatus(reportId, 'Approved', { signature, notes: comment });
         if (success) {
+            const timestamp = new Date().toISOString();
             setFooter(prev => ({
                 ...prev,
                 report_status: 'Approved',
                 signature,
                 approved_by: currentUser.name,
-                approved_at: new Date().toISOString(),
+                approved_at: timestamp,
             }));
+
+            // Optmistic logs and comments updates
+            const newLogs = [...collaboration.logs, {
+                id: `log_${Date.now()}`,
+                action: "Status Changed to Approved",
+                user: currentUser.name,
+                timestamp,
+                details: "Report Approved"
+            }];
+            let newComments = [...collaboration.comments];
+            if (comment) {
+                newComments.push({
+                    id: `comment_${Date.now()}`,
+                    author: currentUser.name,
+                    role: currentUser.role,
+                    text: comment,
+                    timestamp
+                });
+            }
+            setCollaboration({ logs: newLogs, comments: newComments });
+
             setIsApproveModalOpen(false);
             if (onStatusChange) onStatusChange();
         }
@@ -191,7 +256,7 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
 
             {isFullReport && (
                 <FullReportOverlay
-                    report={report}
+                    report={{ ...report, report_footer: footer, collaboration }}
                     reportId={reportId}
                     imageSrc={imagePreview}
                     onClose={() => setIsFullReport(false)}
@@ -433,8 +498,8 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
                         <div className="pt-8 border-t border-border-primary">
                             <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-4">Collaboration & Logs</h3>
                             <CollaborationPanel
-                                comments={report.collaboration?.comments || []}
-                                logs={report.collaboration?.logs || []}
+                                comments={collaboration.comments}
+                                logs={collaboration.logs}
                                 onAddComment={handleAddComment}
                                 currentUser={currentUser}
                             />
