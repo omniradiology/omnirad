@@ -63,7 +63,7 @@ You need Node.js installed on your local machine.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/openrad.git
+   git clone https://github.com/omersx/openrad.git
    cd openrad
    ```
 
