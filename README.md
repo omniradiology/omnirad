@@ -3,13 +3,13 @@
 OpenRad is a modern, responsive web application designed for radiologists and medical professionals to generate, review, and manage AI-assisted radiology reports. It connects a sleek frontend interface with your choice of AI workflow platforms (like n8n) and uses Supabase for cloud data persistence, alongside local caching for blazing-fast performance.
 ## 📸 OpenRad UI
 
-<img width="1920" height="848" alt="view-summary" src="https://github.com/user-attachments/assets/9eb9f1ca-fe2f-4bff-90ff-20f8026e9c02" />
+<img width="1920" height="848" alt="view-summary" src="https://github.com/omersx/assets/9eb9f1ca-fe2f-4bff-90ff-20f8026e9c02" />
 
 
 
 
 
-<img width="1920" height="854" alt="reports" src="https://github.com/user-attachments/assets/ad066ccf-a530-47bf-8f15-80cbf91e3aa0" />
+<img width="1920" height="854" alt="reports" src="https://github.com/omersx/assets/ad066ccf-a530-47bf-8f15-80cbf91e3aa0" />
 
 
 
@@ -63,7 +63,7 @@ You need Node.js installed on your local machine.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/openrad.git
+   git clone https://github.com/omersx/openrad.git
    cd openrad
    ```
 
