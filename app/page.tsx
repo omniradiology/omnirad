@@ -19,9 +19,9 @@ export default function Home() {
       const urls = patientImages.map(img => URL.createObjectURL(img));
       setImagePreviews(urls);
       return () => urls.forEach(url => URL.revokeObjectURL(url));
-    } else {
-      setImagePreviews([]);
     }
+    // We intentionally don't clear imagePreviews in an else block here,
+    // so that manual DICOM base64 previews don't get wiped out.
   }, [patientImages]);
 
   const handleGenerate = async (data: PatientContext, dicomRef?: React.RefObject<any>) => {
@@ -79,6 +79,7 @@ export default function Home() {
   const handleNewPatient = () => {
     setReport(null);
     setPatientImages([]);
+    setImagePreviews([]);
   }
 
   return (
