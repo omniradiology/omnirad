@@ -1,67 +1,138 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Badge } from "@/components/ui/basic"
-import { Trash2, UserPlus, User } from "lucide-react"
+import * as React from "react";
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Badge } from "@/components/ui/basic";
+import { Trash2, UserPlus } from "lucide-react";
 
-interface User {
+interface DbUser {
     id: string;
-    name: string;
+    fullName: string;
+    username: string;
     email: string;
-    role: "Admin" | "Doctor" | "Nurse" | "Technician" | "Other";
-    active: boolean;
+    role: "Admin" | "User";
+    createdAt: string;
 }
 
 export function UserManagementPanel() {
-    const [users, setUsers] = React.useState<User[]>([]);
+    const [users, setUsers] = React.useState<DbUser[]>([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [isAdmin, setIsAdmin] = React.useState(false);
+    
+    // Form state
     const [newUser, setNewUser] = React.useState({
-        name: "",
+        fullName: "",
+        username: "",
         email: "",
-        role: "Doctor" as const
+        password: "",
+        role: "User" as const
     });
 
+    const [error, setError] = React.useState("");
+
     React.useEffect(() => {
-        const savedUsers = localStorage.getItem("openrad_users");
-        if (savedUsers) {
-            setUsers(JSON.parse(savedUsers));
-        } else {
-            // Seed with some dummy data if empty
-            const initialUsers: User[] = [
-                { id: "1", name: "Admin User", email: "admin@openrad.app", role: "Admin", active: true },
-                { id: "2", name: "Dr. Sarah Chen", email: "sarah.chen@hospital.com", role: "Doctor", active: true },
-            ];
-            setUsers(initialUsers);
-            localStorage.setItem("openrad_users", JSON.stringify(initialUsers));
-        }
+        // First check if current user is admin visually (API will also block them)
+        fetch('/api/auth/me')
+            .then(res => res.json())
+            .then(me => {
+                if (me.role === 'Admin') {
+                    setIsAdmin(true);
+                    loadUsers();
+                } else {
+                    setIsAdmin(false);
+                    setIsLoading(false);
+                }
+            })
+            .catch(() => setIsLoading(false));
     }, []);
 
-    const saveUsers = (updatedUsers: User[]) => {
-        setUsers(updatedUsers);
-        localStorage.setItem("openrad_users", JSON.stringify(updatedUsers));
+    const loadUsers = () => {
+        fetch('/api/auth/users')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) setUsers(data);
+                setIsLoading(false);
+            })
+            .catch(e => {
+                console.error("Error loading users:", e);
+                setIsLoading(false);
+            });
     };
 
-    const handleAddUser = () => {
-        if (!newUser.name || !newUser.email) return;
-        const user: User = {
-            id: Date.now().toString(),
-            name: newUser.name,
-            email: newUser.email,
-            role: newUser.role,
-            active: true
-        };
-        saveUsers([...users, user]);
-        setNewUser({ name: "", email: "", role: "Doctor" });
-    };
+    const handleAddUser = async () => {
+        setError("");
+        if (!newUser.fullName || !newUser.username || !newUser.password || !newUser.email) {
+            setError("All fields are required.");
+            return;
+        }
 
-    const handleRemoveUser = (id: string) => {
-        if (confirm("Are you sure you want to remove this user?")) {
-            saveUsers(users.filter(u => u.id !== id));
+        try {
+            const res = await fetch('/api/auth/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newUser),
+            });
+            const data = await res.json();
+            
+            if (!res.ok) throw new Error(data.error);
+            
+            setNewUser({ fullName: "", username: "", email: "", password: "", role: "User" });
+            loadUsers();
+        } catch (err: any) {
+            setError(err.message);
         }
     };
 
-    const toggleStatus = (id: string) => {
-        saveUsers(users.map(u => u.id === id ? { ...u, active: !u.active } : u));
+    const handleRemoveUser = async (id: string, role: string) => {
+        if (role === 'Admin') {
+            const adminCount = users.filter(u => u.role === 'Admin').length;
+            if (adminCount <= 1) {
+                alert("Cannot delete the last Admin account.");
+                return;
+            }
+        }
+
+        if (confirm("Are you sure you want to completely remove this user account?")) {
+            try {
+                const res = await fetch(`/api/auth/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadUsers();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || "Failed to remove user");
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
     };
+
+    const toggleRole = async (user: DbUser) => {
+        const newRole = user.role === 'Admin' ? 'User' : 'Admin';
+
+        if (user.role === 'Admin') {
+            const adminCount = users.filter(u => u.role === 'Admin').length;
+            if (adminCount <= 1) {
+                alert("Cannot demote the last Admin account.");
+                return;
+            }
+        }
+
+        try {
+            const res = await fetch('/api/auth/users', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: user.id, role: newRole }),
+            });
+            if (res.ok) {
+                loadUsers();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    if (isLoading) return null;
+    if (!isAdmin) return null; // Hide panel entirely if not admin
 
     return (
         <Card className="bg-bg-surface border-border-primary">
@@ -71,40 +142,75 @@ export function UserManagementPanel() {
             <CardContent className="space-y-6">
 
                 {/* Add User Form */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-bg-panel/50 p-4 rounded-lg border border-border-primary">
-                    <div className="space-y-2">
-                        <Label>Full Name</Label>
-                        <Input
-                            value={newUser.name}
-                            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                            placeholder="John Doe"
-                        />
+                <div className="bg-bg-panel/30 p-6 rounded-xl border border-border-primary space-y-6 shadow-sm">
+                    <div className="flex items-center justify-between border-b border-border-primary/50 pb-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-text-heading">Create New User</h3>
+                            <p className="text-sm text-text-muted mt-1">Add a new team member to OpenRad and assign their permissions.</p>
+                        </div>
+                        <div className="p-3 bg-primary/10 rounded-full hidden sm:block">
+                            <UserPlus size={24} className="text-primary" />
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input
-                            value={newUser.email}
-                            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                            placeholder="john@example.com"
-                        />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <div className="space-y-2">
+                            <Label className="text-text-secondary text-xs uppercase tracking-wider font-semibold">Full Name</Label>
+                            <Input
+                                value={newUser.fullName}
+                                onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })}
+                                placeholder="Jane Doe"
+                                className="h-10 bg-bg-surface"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-text-secondary text-xs uppercase tracking-wider font-semibold">Username</Label>
+                            <Input
+                                value={newUser.username}
+                                onChange={(e) => setNewUser({ ...newUser, username: e.target.value.toLowerCase().replace(/\s/g, '') })}
+                                placeholder="janed"
+                                className="h-10 bg-bg-surface font-mono text-sm"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-text-secondary text-xs uppercase tracking-wider font-semibold">Email Address</Label>
+                            <Input
+                                type="email"
+                                value={newUser.email}
+                                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                placeholder="jane@example.com"
+                                className="h-10 bg-bg-surface"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-text-secondary text-xs uppercase tracking-wider font-semibold">Temporary Password</Label>
+                            <Input
+                                type="text"
+                                value={newUser.password}
+                                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                placeholder="Secure temporary password"
+                                className="h-10 bg-bg-surface"
+                            />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label className="text-text-secondary text-xs uppercase tracking-wider font-semibold">Role Access</Label>
+                            <select
+                                className="flex h-10 w-full md:w-1/2 rounded-md border border-border-primary bg-bg-surface px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                                value={newUser.role}
+                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
+                            >
+                                <option value="User">User</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label>Role</Label>
-                        <select
-                            className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={newUser.role}
-                            onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
-                        >
-                            <option value="Admin">Admin</option>
-                            <option value="Doctor">Doctor</option>
-                            <option value="Nurse">Nurse</option>
-                            <option value="Technician">Technician</option>
-                            <option value="Other">Other</option>
-                        </select>
+                    
+                    <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-border-primary/50 gap-4 mt-2">
+                        <div className="text-red-500 text-sm font-medium">{error}</div>
+                        <Button onClick={handleAddUser} className="bg-primary hover:bg-primary-hover text-white h-10 px-8 w-full sm:w-auto shadow-md">
+                            <UserPlus size={16} className="mr-2" /> Create User
+                        </Button>
                     </div>
-                    <Button onClick={handleAddUser} className="bg-primary hover:bg-primary-hover text-white">
-                        <UserPlus size={16} className="mr-2" /> Add User
-                    </Button>
                 </div>
 
                 {/* Users List */}
@@ -113,8 +219,8 @@ export function UserManagementPanel() {
                         <thead className="bg-bg-panel text-text-secondary border-b border-border-primary">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Name</th>
+                                <th className="px-4 py-3 font-medium">Username</th>
                                 <th className="px-4 py-3 font-medium">Role</th>
-                                <th className="px-4 py-3 font-medium">Status</th>
                                 <th className="px-4 py-3 font-medium text-right">Actions</th>
                             </tr>
                         </thead>
@@ -127,20 +233,21 @@ export function UserManagementPanel() {
                             {users.map((user) => (
                                 <tr key={user.id} className="hover:bg-bg-panel/30 transition-colors">
                                     <td className="px-4 py-3">
-                                        <div className="font-medium text-text-heading">{user.name}</div>
+                                        <div className="font-medium text-text-heading">{user.fullName}</div>
                                         <div className="text-xs text-text-muted">{user.email}</div>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <Badge variant="outline" className="text-text-primary border-border-primary">
-                                            {user.role}
-                                        </Badge>
+                                        <div className="text-text-primary font-mono text-xs">@{user.username}</div>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <button onClick={() => toggleStatus(user.id)} className="flex items-center gap-1.5 focus:outline-none">
-                                            <div className={`h-2 w-2 rounded-full ${user.active ? 'bg-green-500' : 'bg-red-500'}`} />
-                                            <span className={user.active ? 'text-green-500' : 'text-red-500'}>
-                                                {user.active ? 'Active' : 'Inactive'}
-                                            </span>
+                                        <button 
+                                            onClick={() => toggleRole(user)}
+                                            className="focus:outline-none hover:opacity-80 transition-opacity"
+                                            title="Click to toggle role"
+                                        >
+                                            <Badge variant="outline" className={`text-text-primary border-border-primary ${user.role === 'Admin' ? 'bg-primary/20 text-primary-hover border-primary/30' : ''}`}>
+                                                {user.role}
+                                            </Badge>
                                         </button>
                                     </td>
                                     <td className="px-4 py-3 text-right">
@@ -148,9 +255,10 @@ export function UserManagementPanel() {
                                             variant="ghost"
                                             size="sm"
                                             className="text-red-500 hover:text-red-400 hover:bg-red-950/20"
-                                            onClick={() => handleRemoveUser(user.id)}
+                                            onClick={() => handleRemoveUser(user.id, user.role)}
+                                            title="Revoke Access / Delete"
                                         >
-                                            <Trash2 size={14} /> {/* No text, just icon for compactness */}
+                                            <Trash2 size={16} />
                                         </Button>
                                     </td>
                                 </tr>
@@ -158,7 +266,6 @@ export function UserManagementPanel() {
                         </tbody>
                     </table>
                 </div>
-
             </CardContent>
         </Card>
     )

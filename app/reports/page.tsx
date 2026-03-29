@@ -36,14 +36,15 @@ export default function ReportsPage() {
     const [currentUser, setCurrentUser] = React.useState({ name: "Dr. User", role: "Radiologist" });
 
     React.useEffect(() => {
-        const savedProfile = localStorage.getItem("openrad_profile");
-        if (savedProfile) {
-            const profile = JSON.parse(savedProfile);
-            setCurrentUser({
-                name: profile.fullName || "Dr. User",
-                role: profile.role || "Radiologist"
-            });
-        }
+        fetch('/api/settings?type=profile')
+            .then(res => res.json())
+            .then(data => {
+                setCurrentUser({
+                    name: data.fullName || "Dr. User",
+                    role: data.role || "Radiologist"
+                });
+            })
+            .catch(e => console.error("Error loading profile:", e));
     }, []);
 
     const loadReports = async () => {
@@ -142,12 +143,14 @@ export default function ReportsPage() {
             reportData.report_footer.report_status = "Pending";
         }
 
+
         return (
             <div className="h-full flex flex-col md:flex-row overflow-hidden bg-bg-primary">
                 {/* Left Panel - Image Viewer */}
                 <div className="w-full md:w-[450px] md:min-w-[450px] h-auto md:h-full border-b md:border-b-0 md:border-r border-border-primary bg-bg-primary overflow-hidden">
                     <ImageViewer
                         imageSrc={reportData.image_data || null}
+                        images={reportData.images_data && reportData.images_data.length > 0 ? reportData.images_data : (reportData.image_data ? [reportData.image_data] : [])}
                         className="w-full h-full"
                         isCollapsed={false}
                         onToggleCollapse={() => { }}
@@ -302,7 +305,7 @@ function ReportCard({ report, onView, onApprove, onReject, processing, status }:
             <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-medium text-text-heading">{data.patient.name}</p>
+                        <p className="font-medium text-text-heading">{data.patient?.name || report.patient_name || 'Unknown Patient'}</p>
                         <p className="text-xs text-text-secondary">{data.patient.age}y • {data.patient.gender}</p>
                     </div>
                     <Badge variant="outline" className={`text-[10px] ${data.urgency === 'Critical' ? 'border-red-500 text-red-500' :

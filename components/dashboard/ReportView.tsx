@@ -17,10 +17,11 @@ interface ReportViewProps {
     onNewPatient: () => void;
     reportId?: string;
     imagePreview?: string | null;
+    imagesPreviews?: string[];
     onStatusChange?: () => void;
 }
 
-export function ReportView({ report, onNewPatient, reportId, imagePreview, onStatusChange }: ReportViewProps) {
+export function ReportView({ report, onNewPatient, reportId, imagePreview, imagesPreviews = [], onStatusChange }: ReportViewProps) {
     const [currentUser, setCurrentUser] = React.useState({ name: "Dr. User", role: "Doctor" });
 
     // Local state for the report footer and collaboration so UI re-renders immediately
@@ -40,17 +41,16 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
     }, [report]);
 
     React.useEffect(() => {
-        // Load current user from profile
-        if (typeof window !== 'undefined') {
-            const savedProfile = localStorage.getItem("openrad_profile");
-            if (savedProfile) {
-                const profile = JSON.parse(savedProfile);
+        // Load current user from profile via API
+        fetch('/api/settings?type=profile')
+            .then(res => res.json())
+            .then(data => {
                 setCurrentUser({
-                    name: profile.fullName || "Dr. User",
-                    role: profile.role || "Doctor"
+                    name: data.fullName || "Dr. User",
+                    role: data.role || "Doctor"
                 });
-            }
-        }
+            })
+            .catch(e => console.error("Error loading profile:", e));
     }, []);
 
     const handleAddComment = async (text: string) => {
@@ -258,7 +258,12 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, onSta
                 <FullReportOverlay
                     report={{ ...report, report_footer: footer, collaboration }}
                     reportId={reportId}
-                    imageSrc={imagePreview}
+                    imageSrc={imagePreview || report.image_data}
+                    images={
+                        imagesPreviews.length > 0 ? imagesPreviews :
+                        report.images_data && report.images_data.length > 0 ? report.images_data :
+                        []
+                    }
                     onClose={() => setIsFullReport(false)}
                     onNewPatient={onNewPatient}
                     onPrint={handlePrint}

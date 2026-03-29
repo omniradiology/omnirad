@@ -11,30 +11,29 @@ import { PatientContext, ReportData } from "@/types";
 export default function Home() {
   const [report, setReport] = React.useState<ReportData | null>(null);
   const [isGenerating, setIsGenerating] = React.useState(false);
-  const [patientImage, setPatientImage] = React.useState<File | null>(null);
-  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [patientImages, setPatientImages] = React.useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
 
   React.useEffect(() => {
-    if (patientImage) {
-      const url = URL.createObjectURL(patientImage);
-      setImagePreview(url);
-      return () => URL.revokeObjectURL(url);
+    if (patientImages && patientImages.length > 0) {
+      const urls = patientImages.map(img => URL.createObjectURL(img));
+      setImagePreviews(urls);
+      return () => urls.forEach(url => URL.revokeObjectURL(url));
     } else {
-      setImagePreview(null);
+      setImagePreviews([]);
     }
-  }, [patientImage]);
+  }, [patientImages]);
 
-  const handleGenerate = async (data: PatientContext) => {
+  const handleGenerate = async (data: PatientContext, dicomRef?: React.RefObject<any>) => {
     setIsGenerating(true);
-    setPatientImage(data.image || null);
     try {
       // Check if a webhook URL is configured (env or localStorage)
       let hasWebhook = !!process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
       if (!hasWebhook && typeof window !== 'undefined') {
         try {
-          const savedConfig = localStorage.getItem("openrad_config");
-          if (savedConfig) {
-            const config = JSON.parse(savedConfig);
+          const res = await fetch('/api/settings?type=config');
+          if (res.ok) {
+            const config = await res.json();
             hasWebhook = !!(config.n8nWebhookUrl && config.n8nWebhookUrl.trim());
           }
         } catch (e) { /* ignore */ }
@@ -45,7 +44,26 @@ export default function Home() {
         return;
       }
 
-      const reports = await generateReport(data);
+      let dicomBase64: string | null = null;
+      if (data.isDicom && dicomRef?.current) {
+          try {
+              dicomBase64 = await dicomRef.current.captureFrame();
+          } catch (e) {
+              console.error("Failed to capture DICOM frame for upload", e);
+          }
+      }
+
+      // For DICOM: use the captured JPEG base64 as the preview
+      // For manual: use object URLs from the uploaded image files
+      if (data.isDicom && dicomBase64) {
+        setImagePreviews([dicomBase64]);
+        setPatientImages([]); // Don't store raw .dcm in patientImages
+      } else {
+        const files = data.images || (data.image ? [data.image] : []);
+        setPatientImages(files);
+      }
+
+      const reports = await generateReport(data, dicomBase64);
       if (reports && reports.length > 0) {
         setReport(reports[0]);
       }
@@ -60,7 +78,7 @@ export default function Home() {
 
   const handleNewPatient = () => {
     setReport(null);
-    setPatientImage(null);
+    setPatientImages([]);
   }
 
   return (
@@ -69,7 +87,8 @@ export default function Home() {
       <div className={`w-full md:w-[450px] md:min-w-[450px] h-auto md:h-full border-b md:border-b-0 md:border-r border-border-primary bg-bg-primary overflow-hidden transition-all duration-300`}>
         {report ? (
           <ImageViewer
-            imageSrc={imagePreview || (process.env.NODE_ENV === 'development' ? "/placeholder-xray.png" : null)}
+            imageSrc={imagePreviews.length > 0 ? imagePreviews[0] : (process.env.NODE_ENV === 'development' ? "/placeholder-xray.png" : null)}
+            images={imagePreviews.length > 0 ? imagePreviews : (process.env.NODE_ENV === 'development' ? ["/placeholder-xray.png"] : [])}
             className="w-full h-full"
             isCollapsed={false}
             onToggleCollapse={() => { }} // Not needed in this layout for now
@@ -87,7 +106,8 @@ export default function Home() {
           <ReportView
             report={report}
             onNewPatient={handleNewPatient}
-            imagePreview={imagePreview}
+            imagePreview={imagePreviews.length > 0 ? imagePreviews[0] : null}
+            imagesPreviews={imagePreviews}
             reportId={report.report_header.report_id}
           />
         ) : (

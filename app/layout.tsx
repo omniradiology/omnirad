@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
+import ClientLayout from "@/components/layout/ClientLayout";
 
 export const metadata: Metadata = {
   title: "OpenRad - AI Radiology",
@@ -39,13 +38,9 @@ export default function RootLayout({
         />
       </head>
       <body className="flex flex-col md:flex-row h-screen overflow-hidden bg-bg-primary text-text-primary antialiased">
-        <Header />
-        <div className="hidden md:block z-50">
-          <Sidebar />
-        </div>
-        <main className="flex-1 md:ml-20 h-full overflow-auto relative w-full">
+        <ClientLayout>
           {children}
-        </main>
+        </ClientLayout>
       </body>
     </html>
   );

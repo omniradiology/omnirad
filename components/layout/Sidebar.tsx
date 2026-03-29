@@ -1,12 +1,13 @@
 "use client"
 
 import Image from 'next/image';
-import { FileText, LayoutDashboard, Settings, User, Clock } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, User, Clock, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-20 bg-bg-surface border-r border-border-primary flex flex-col items-center py-6 z-50 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
@@ -54,11 +55,21 @@ export function Sidebar() {
         />
       </nav>
 
-      <div className="mt-4 pb-6">
-        {/* User Avatar Placeholder */}
-        <div className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center text-slate-400">
-          <User size={20} />
-        </div>
+      <div className="mt-4 pb-4 px-3 w-full">
+        <button
+          onClick={async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            router.push('/login');
+          }}
+          className="relative group flex w-full items-center justify-center p-3 rounded-xl transition-all duration-300 ease-out text-text-muted hover:bg-red-500/10 hover:text-red-500 hover:scale-105"
+          title="Logout"
+        >
+          <LogOut size={22} className="transition-transform duration-300 group-hover:stroke-[2.5px]" />
+          <span className="absolute left-16 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 pointer-events-none transition-all duration-200 shadow-xl z-50 whitespace-nowrap">
+            Logout
+            <span className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45"></span>
+          </span>
+        </button>
       </div>
     </aside>
   );

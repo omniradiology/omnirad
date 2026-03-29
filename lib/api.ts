@@ -1,68 +1,85 @@
 import { PatientContext, ReportData, ReportStatus } from "@/types";
-import { getSupabaseClient } from "./supabase";
+import { getSupabaseClient, ensureSupabaseConfig } from "./supabase";
 
-export async function generateReport(data: PatientContext): Promise<ReportData[]> {
-    // 1. Try to get webhook URL - prioritize localStorage config over env variable
+// ─── Helper: fetch settings from the local SQLite API ────────────────────────
+async function fetchSettings(type: string) {
+    try {
+        const res = await fetch(`/api/settings?type=${type}`);
+        if (res.ok) return await res.json();
+    } catch (e) {
+        console.warn(`[OpenRad] Could not fetch settings/${type}:`, e);
+    }
+    return null;
+}
+
+// ─── Generate Report ─────────────────────────────────────────────────────────
+export async function generateReport(data: PatientContext, dicomBase64?: string | null): Promise<ReportData[]> {
+    // 1. Try to get webhook URL from SQLite config
     let webhookUrl: string | undefined = undefined;
 
-    if (typeof window !== 'undefined') {
-        try {
-            const savedConfig = localStorage.getItem("openrad_config");
-            if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                if (config.n8nWebhookUrl && config.n8nWebhookUrl.trim() !== '') {
-                    webhookUrl = config.n8nWebhookUrl.trim();
-                    console.log("[OpenRad] Using webhook URL from settings:", webhookUrl);
-                }
-            }
-        } catch (e) {
-            console.error("[OpenRad] Error reading config from localStorage:", e);
+    try {
+        const cfg = await fetchSettings("config");
+        if (cfg?.n8nWebhookUrl?.trim()) {
+            webhookUrl = cfg.n8nWebhookUrl.trim();
+            console.log("[OpenRad] Using webhook URL from settings:", webhookUrl);
         }
+    } catch (e) {
+        console.error("[OpenRad] Error reading config:", e);
     }
 
-    // Fallback to env variable if not set in localStorage
+    // Fallback to env variable
     if (!webhookUrl && process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL) {
         webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
         console.log("[OpenRad] Using webhook URL from env variable:", webhookUrl);
     }
 
     if (!webhookUrl) {
-        console.error("[OpenRad] No webhook URL configured. Set the n8n Webhook URL in Settings.");
+        console.error("[OpenRad] No webhook URL configured.");
         throw new Error("No webhook URL configured. Please enter your n8n webhook URL in Settings.");
     }
 
     try {
-        // Build multipart/form-data so the image arrives in n8n as binary data
         const formData = new FormData();
-
-        // Patient fields
         formData.append("patient_name", data.fullName);
         formData.append("patient_age", String(data.age));
         formData.append("patient_gender", data.gender);
-
-        // Clinical information fields
         formData.append("symptoms", data.symptoms);
         formData.append("history", data.history);
         formData.append("indication", data.indication);
-
-        // Study fields
         formData.append("modality", data.modality);
+        
+        formData.append("isDicom", data.isDicom ? "true" : "false");
+        if (data.isDicom && data.dicomMetadata) {
+             formData.append("dicomMetadata", JSON.stringify(data.dicomMetadata));
+        }
 
-        // We also keep a base64 copy for local storage / report preview
         let imageBase64: string | null = null;
+        let imagesBase64: string[] = [];
+        
+        const filesToProcess = data.images && data.images.length > 0 ? data.images : (data.image ? [data.image] : []);
+        
+        if (data.isDicom && dicomBase64) {
+            // For DICOM, we append the Base64 extraction from Cornerstone directly
+            // Convert Base64 back to Blob so n8n still receives a binary form file
+            const response = await fetch(dicomBase64);
+            const blob = await response.blob();
+            formData.append("image", blob, "dicom-preview.jpg");
+            imageBase64 = dicomBase64;
+            imagesBase64.push(dicomBase64);
+        } else {
+            for (let i = 0; i < filesToProcess.length; i++) {
+                const file = filesToProcess[i] as File;
+                formData.append(i === 0 ? "image" : `image_${i}`, file, file.name);
 
-        // Append image as binary file under the key "image"
-        if (data.image) {
-            const file = data.image as File;
-            formData.append("image", file, file.name);
-
-            // Also generate base64 for local report preview/history
-            imageBase64 = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
+                const b64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                imagesBase64.push(b64);
+                if (i === 0) imageBase64 = b64;
+            }
         }
 
         console.log("[OpenRad] Sending request to webhook:", webhookUrl);
@@ -74,10 +91,9 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
             history: data.history,
             indication: data.indication,
             modality: data.modality,
-            image: data.image ? `[binary file: ${(data.image as File).name}, ${(data.image as File).size} bytes]` : null,
+            images: filesToProcess.length > 0 ? filesToProcess.map((f: File) => `[binary file: ${f.name}, ${f.size} bytes]`) : null,
         });
 
-        // Send as multipart/form-data (do NOT set Content-Type header — the browser sets it automatically with the boundary)
         const response = await fetch(webhookUrl, {
             method: "POST",
             body: formData,
@@ -97,22 +113,16 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
         // Handle various response formats from n8n
         let reports: ReportData[];
         if (Array.isArray(rawResponse)) {
-            // n8n returned an array of reports
             reports = rawResponse;
         } else if (rawResponse && typeof rawResponse === 'object') {
-            // n8n returned a single report object - check common wrapper patterns
             if (rawResponse.output && typeof rawResponse.output === 'object') {
-                // n8n AI agent may wrap response in { output: ... }
                 reports = Array.isArray(rawResponse.output) ? rawResponse.output : [rawResponse.output];
             } else if (rawResponse.data && typeof rawResponse.data === 'object') {
-                // Another common pattern: { data: ... }
                 reports = Array.isArray(rawResponse.data) ? rawResponse.data : [rawResponse.data];
             } else if (rawResponse.report_header || rawResponse.patient || rawResponse.findings) {
-                // Direct report object
                 reports = [rawResponse as ReportData];
             } else {
-                // Try to use the whole response as a report
-                console.warn("[OpenRad] Unexpected response format, attempting to use as report:", rawResponse);
+                console.warn("[OpenRad] Unexpected response format:", rawResponse);
                 reports = [rawResponse as ReportData];
             }
         } else {
@@ -121,14 +131,12 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
 
         console.log("[OpenRad] Parsed reports count:", reports.length);
 
-        // Helper to normalize report_status from webhook to our known values
         const normalizeStatus = (status: string | undefined): ReportStatus => {
             if (!status) return 'Pending';
             const upper = status.toUpperCase().trim();
             if (upper === 'APPROVED') return 'Approved';
             if (upper === 'REJECTED') return 'Rejected';
             if (upper === 'FINAL') return 'Final';
-            // Anything else (PRELIMINARY, DRAFT, PENDING, etc.) maps to Pending
             return 'Pending';
         };
 
@@ -136,19 +144,16 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
         let defaultPreparedBy = 'OpenRad AI';
         let defaultDepartment = 'Radiology';
         let defaultHospitalName = 'Hospital';
-        if (typeof window !== 'undefined') {
-            try {
-                const savedProfile = localStorage.getItem("openrad_profile");
-                if (savedProfile) {
-                    const profile = JSON.parse(savedProfile);
-                    if (profile.fullName) defaultPreparedBy = profile.fullName;
-                    if (profile.department) defaultDepartment = profile.department;
-                    if (profile.hospitalName) defaultHospitalName = profile.hospitalName;
-                }
-            } catch (e) { /* ignore */ }
-        }
+        try {
+            const profileData = await fetchSettings("profile");
+            if (profileData) {
+                if (profileData.fullName) defaultPreparedBy = profileData.fullName;
+                if (profileData.department) defaultDepartment = profileData.department;
+                if (profileData.hospitalName) defaultHospitalName = profileData.hospitalName;
+            }
+        } catch (e) { /* ignore */ }
 
-        // Ensure report has required structure with sensible defaults
+        // Ensure report has required structure
         reports = reports.map(report => {
             const footer = report.report_footer || {};
             return {
@@ -159,7 +164,11 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
                     report_id: `RAD-${Date.now()}`,
                     report_date: new Date().toISOString(),
                 },
-                patient: report.patient || { name: data.fullName, age: data.age, gender: data.gender },
+                patient: {
+                    name: report.patient?.name || data.fullName || 'Unknown Patient',
+                    age: report.patient?.age || data.age || 0,
+                    gender: report.patient?.gender || data.gender || 'Unknown'
+                },
                 clinical_information: report.clinical_information || {
                     symptoms: data.symptoms,
                     history: data.history,
@@ -181,16 +190,20 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
                 },
                 disclaimer: report.disclaimer || 'This AI-generated report is for reference only and must be verified by a licensed radiologist.',
                 image_data: report.image_data,
+                images_data: report.images_data,
                 collaboration: report.collaboration,
             };
         });
 
-        // Attach image data to report before saving
-        if (reports.length > 0 && imageBase64) {
-            reports[0].image_data = imageBase64;
+        // Attach image data
+        if (reports.length > 0) {
+            if (imageBase64 && !reports[0].image_data) reports[0].image_data = imageBase64;
+            if (imagesBase64.length > 0 && (!reports[0].images_data || reports[0].images_data.length === 0)) {
+                reports[0].images_data = imagesBase64;
+            }
         }
 
-        // Save the first report to Supabase
+        // Save the first report
         if (reports.length > 0) {
             await saveReport(reports[0]);
         }
@@ -202,31 +215,38 @@ export async function generateReport(data: PatientContext): Promise<ReportData[]
     }
 }
 
+// ─── Save Report ─────────────────────────────────────────────────────────────
 export async function saveReport(report: ReportData) {
-    // 1. Save to localStorage first (always works, even offline)
+    const reportId = `local_${Date.now()}`;
+
+    // 1. Save to local SQLite via API
     try {
-        const localReports = JSON.parse(localStorage.getItem("openrad_reports") || "[]");
-        const reportWithId = {
-            id: `local_${Date.now()}`,
-            patient_name: report.patient.name,
-            modality: report.study.examination,
-            urgency: report.urgency,
-            report_data: report,
-            created_at: new Date().toISOString()
-        };
-        localReports.push(reportWithId);
-        localStorage.setItem("openrad_reports", JSON.stringify(localReports));
-        console.log("Report saved to localStorage:", reportWithId.id);
+        const res = await fetch('/api/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: reportId, report_data: report }),
+        });
+        if (res.ok) {
+            console.log("Report saved to SQLite:", reportId);
+        } else {
+            console.error("Error saving to SQLite:", await res.text());
+        }
     } catch (err) {
-        console.error("Error saving to localStorage:", err);
+        console.error("Error saving to SQLite:", err);
     }
 
     // 2. Then save to Supabase (if configured)
+    await ensureSupabaseConfig();
     const supabase = getSupabaseClient();
     if (!supabase) {
         console.warn("Supabase not configured. Report saved locally only.");
         return null;
     }
+
+    // Strip heavy base64 image data to save Supabase storage space
+    const cloudReportData = { ...report };
+    delete cloudReportData.image_data;
+    delete cloudReportData.images_data;
 
     try {
         const { data, error } = await supabase.from('reports').insert({
@@ -234,7 +254,7 @@ export async function saveReport(report: ReportData) {
             modality: report.study.examination,
             urgency: report.urgency,
             report_status: report.report_footer?.report_status || 'Pending',
-            report_data: report,
+            report_data: cloudReportData,
             created_at: new Date().toISOString()
         }).select();
 
@@ -247,7 +267,7 @@ export async function saveReport(report: ReportData) {
             });
 
             if (error.code === '42501') {
-                console.warn("⚠️ PERMISSION DENIED: This is likely an RLS (Row Level Security) issue. Please run the SQL setup script in your Supabase dashboard to enable access.");
+                console.warn("⚠️ PERMISSION DENIED: RLS issue. Run the SQL setup script.");
             }
             return null;
         }
@@ -260,16 +280,21 @@ export async function saveReport(report: ReportData) {
     }
 }
 
+// ─── Get Reports ─────────────────────────────────────────────────────────────
 export async function getReports() {
-    // 1. Get reports from localStorage
+    // 1. Get reports from local SQLite
     let localReports: any[] = [];
     try {
-        localReports = JSON.parse(localStorage.getItem("openrad_reports") || "[]");
+        const res = await fetch('/api/reports');
+        if (res.ok) {
+            localReports = await res.json();
+        }
     } catch (err) {
-        console.error("Error loading from localStorage:", err);
+        console.error("Error loading from SQLite:", err);
     }
 
     // 2. Get reports from Supabase
+    await ensureSupabaseConfig();
     const supabase = getSupabaseClient();
     let supabaseReports: any[] = [];
 
@@ -287,28 +312,67 @@ export async function getReports() {
     }
 
     // 3. Merge both sources (Supabase reports first, then local-only reports)
-    // We must deduplicate because saveReport saves to BOTH places.
-    // We prefer the Supabase version over the localStorage version if both exist.
-    const allReports = [...supabaseReports];
-    const existingIds = new Set(allReports.map(r => r.report_data?.report_header?.report_id || r.id));
+    const allReports = [];
+    const existingIds = new Set();
+    const localReportsMap = new Map();
 
+    // Map local reports by ID for quick lookup
+    for (const local of localReports) {
+        const localId = local.report_data?.report_header?.report_id || local.id;
+        localReportsMap.set(localId, local);
+    }
+
+    // Process Supabase reports, merging in image_data from local if it's missing
+    for (const sRep of supabaseReports) {
+        // Create a shallow copy so we can mutate report_data
+        const rep = { ...sRep, _source: 'Supabase' };
+        const repId = rep.report_data?.report_header?.report_id || rep.id;
+
+        // If Supabase report is missing image_data, see if we have it locally
+        if (localReportsMap.has(repId)) {
+            rep._source = 'Synced';
+            const local = localReportsMap.get(repId);
+            if (local.report_data?.image_data) {
+                // Also clone report_data to avoid mutating the original fetched object
+                rep.report_data = { ...rep.report_data, image_data: local.report_data.image_data };
+            }
+        }
+
+        allReports.push(rep);
+        existingIds.add(repId);
+    }
+
+    // Add remaining local-only reports
     for (const local of localReports) {
         const localId = local.report_data?.report_header?.report_id || local.id;
         if (!existingIds.has(localId)) {
-            allReports.push(local);
-            existingIds.add(localId); // Just in case of duplicates within local
+            allReports.push({ ...local, _source: 'Local' });
+            existingIds.add(localId);
         }
     }
 
-    console.log(`Loaded ${supabaseReports.length} from Supabase, ${localReports.length} from localStorage. Total deduplicated: ${allReports.length}`);
+    console.log(`Loaded ${supabaseReports.length} from Supabase, ${localReports.length} from SQLite. Total deduplicated: ${allReports.length}`);
 
     return allReports;
 }
 
+// ─── Update Report Data ──────────────────────────────────────────────────────
 export async function updateReportData(id: string, updates: Partial<ReportData>) {
+    // Update local SQLite
+    try {
+        await fetch(`/api/reports/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates }),
+        });
+    } catch (err) {
+        console.error("Error updating SQLite report:", err);
+    }
+
+    // Also update Supabase if configured
+    await ensureSupabaseConfig();
     const supabase = getSupabaseClient();
-    // Skip Supabase for local-only reports
-    if (!supabase || id.startsWith('local_')) return false;
+    if (!supabase || id.startsWith('local_')) return true;
 
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let supabaseRowId: string | null = isUUID ? id : null;
@@ -323,7 +387,7 @@ export async function updateReportData(id: string, updates: Partial<ReportData>)
         if (found) {
             supabaseRowId = found.id;
         } else {
-            return false;
+            return true; // Local update succeeded
         }
     }
 
@@ -333,9 +397,13 @@ export async function updateReportData(id: string, updates: Partial<ReportData>)
         .eq('id', supabaseRowId)
         .single();
 
-    if (fetchError || !current) return false;
+    if (fetchError || !current) return true;
 
     const updatedData = { ...current.report_data, ...updates };
+
+    // Strip base64 image data to ensure it never accidentally inflates the cloud row size during updates
+    delete updatedData.image_data;
+    delete updatedData.images_data;
 
     const { error } = await supabase
         .from('reports')
@@ -345,29 +413,58 @@ export async function updateReportData(id: string, updates: Partial<ReportData>)
     return !error;
 }
 
+// ─── Update Report Status ────────────────────────────────────────────────────
 export async function updateReportStatus(
     id: string,
     status: ReportStatus,
     data?: { signature?: string, rejectionReason?: string, notes?: string }
 ) {
+    await ensureSupabaseConfig();
     const supabase = getSupabaseClient();
 
-    // We will try Supabase first, but if it fails or is missing, we MUST continue to localStorage
-    let updatedData: any = null;
-    let supabaseSuccess = false;
+    // Get current user info from profile
+    let userName = "System";
+    let userRole = "System";
+    try {
+        const profileData = await fetchSettings("profile");
+        if (profileData) {
+            if (profileData.fullName) userName = profileData.fullName;
+            if (profileData.role) userRole = profileData.role;
+        }
+    } catch (e) { /* ignore */ }
 
-    // Classify the id:
-    // - 'local_XXXX'  → only in localStorage, skip Supabase entirely
-    // - valid UUID    → real Supabase row id, use directly
-    // - 'RAD-XXXX'   → report_header.report_id, need to look up the real Supabase UUID first
+    // 1. Update local SQLite via API
+    let localSuccess = false;
+    try {
+        const res = await fetch(`/api/reports/${encodeURIComponent(id)}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                status,
+                signature: data?.signature,
+                rejectionReason: data?.rejectionReason,
+                notes: data?.notes,
+                userName,
+                userRole,
+            }),
+        });
+        localSuccess = res.ok;
+        if (res.ok) {
+            console.log("[OpenRad] SQLite report status updated:", status);
+        }
+    } catch (err) {
+        console.error("[OpenRad] Error updating SQLite status:", err);
+    }
+
+    // 2. Update Supabase (if configured)
     const isLocalReport = id.startsWith('local_');
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-
-    // This is the actual Supabase row UUID we will use for the update
     let supabaseRowId: string | null = isUUID ? id : null;
 
     if (supabase && !isLocalReport) {
-        // If not a UUID (e.g. RAD-XXXX), look up the real row UUID via JSONB query
+        // Resolve non-UUID ids (like RAD-XXXX)
+        let updatedData: any = null;
+
         if (!supabaseRowId) {
             console.log("[OpenRad] Looking up Supabase row by report_id:", id);
             const { data: found, error: lookupError } = await supabase
@@ -380,214 +477,99 @@ export async function updateReportStatus(
             if (!lookupError && found) {
                 supabaseRowId = found.id;
                 updatedData = { ...found.report_data };
-                supabaseSuccess = true;
                 console.log("[OpenRad] Found Supabase row UUID:", supabaseRowId);
             } else {
-                console.warn("[OpenRad] Could not find Supabase row for report_id:", id, lookupError?.message);
+                console.warn("[OpenRad] Could not find Supabase row for report_id:", id);
             }
         } else {
-            // It's a real UUID — fetch the current report_data to preserve other fields
-            const { data: current, error: fetchError } = await supabase
+            const { data: current } = await supabase
                 .from('reports')
                 .select('report_data')
                 .eq('id', supabaseRowId)
                 .single();
-
-            if (!fetchError && current) {
-                updatedData = { ...current.report_data };
-                supabaseSuccess = true;
-            }
-        }
-    }
-
-    // If we couldn't get data from Supabase, try to construct it or find it in local storage
-    if (!updatedData) {
-        try {
-            const localReportsStr = localStorage.getItem("openrad_reports");
-            if (localReportsStr) {
-                const localReports = JSON.parse(localReportsStr);
-                const localReport = localReports.find((r: any) => r.report_data?.report_header?.report_id === id || r.id === id);
-                if (localReport) {
-                    updatedData = { ...localReport.report_data };
-                }
-            }
-        } catch (e) {
-            console.error("Error reading local storage", e);
-        }
-    }
-
-    // If perfectly new or nothing found, we can't update properly, but we should try to construct minimal update
-    if (!updatedData) {
-        // Fallback: This is risky but better than failing. 
-        // Realistically, the caller 'report' object should support this, but we don't have it here.
-        // We will assume the localStorage loop below will catch it.
-    }
-
-    if (updatedData) {
-        updatedData.report_footer.report_status = status;
-
-        // --- Logging & Comments Logic ---
-        if (!updatedData.collaboration) {
-            updatedData.collaboration = { comments: [], logs: [] };
+            if (current) updatedData = { ...current.report_data };
         }
 
-        const timestamp = new Date().toISOString();
-        let userName = "System";
-        let userRole = "System";
+        if (updatedData && supabaseRowId) {
+            // Apply status changes
+            updatedData.report_footer.report_status = status;
+            if (!updatedData.collaboration) updatedData.collaboration = { comments: [], logs: [] };
 
-        if (typeof window !== 'undefined') {
-            const savedProfile = localStorage.getItem("openrad_profile");
-            if (savedProfile) {
-                const profile = JSON.parse(savedProfile);
-                if (profile.fullName) userName = profile.fullName;
-                if (profile.role) userRole = profile.role;
-            }
-        }
-
-        // Add Audit Log
-        updatedData.collaboration.logs.push({
-            id: `log_${Date.now()}`,
-            action: `Status Changed to ${status}`,
-            user: userName,
-            timestamp: timestamp,
-            details: status === 'Rejected' ? `Reason: ${data?.rejectionReason}` :
-                status === 'Approved' ? 'Report Approved' : 'Status reset'
-        });
-
-        // Add Comment (if notes or reason provided)
-        if (data?.notes || data?.rejectionReason) {
-            updatedData.collaboration.comments.push({
-                id: `comment_${Date.now()}`,
-                author: userName,
-                role: userRole,
-                text: data?.notes || data?.rejectionReason || "",
-                timestamp: timestamp
+            const timestamp = new Date().toISOString();
+            updatedData.collaboration.logs.push({
+                id: `log_${Date.now()}`,
+                action: `Status Changed to ${status}`,
+                user: userName,
+                timestamp,
+                details: status === 'Rejected' ? `Reason: ${data?.rejectionReason}` :
+                    status === 'Approved' ? 'Report Approved' : 'Status reset'
             });
-        }
-        // -------------------------------
 
-        // Handle Approval Data
-        if (status === 'Approved') {
-            updatedData.report_footer.approved_at = new Date().toISOString();
-            if (data?.signature) updatedData.report_footer.signature = data.signature;
-            updatedData.report_footer.approved_by = userName;
-        }
+            if (data?.notes || data?.rejectionReason) {
+                updatedData.collaboration.comments.push({
+                    id: `comment_${Date.now()}`,
+                    author: userName,
+                    role: userRole,
+                    text: data?.notes || data?.rejectionReason || "",
+                    timestamp,
+                });
+            }
 
-        // Handle Rejection Data
-        if (status === 'Rejected' && data?.rejectionReason) {
-            updatedData.report_footer.rejection_reason = data.rejectionReason;
-        }
-    }
+            if (status === 'Approved') {
+                updatedData.report_footer.approved_at = timestamp;
+                if (data?.signature) updatedData.report_footer.signature = data.signature;
+                updatedData.report_footer.approved_by = userName;
+            }
 
+            if (status === 'Rejected' && data?.rejectionReason) {
+                updatedData.report_footer.rejection_reason = data.rejectionReason;
+            }
 
-    // 2. Update the record in Supabase (if we have a client and a real UUID)
-    let supabaseError = null;
-    if (supabase && !isLocalReport && updatedData && supabaseRowId) {
-        // Try update with top-level report_status column first
-        const { error: err1 } = await supabase
-            .from('reports')
-            .update({
-                report_data: updatedData,
-                report_status: status,
-            })
-            .eq('id', supabaseRowId);
-
-        if (err1) {
-            // Log full error details
-            console.warn("[OpenRad] Supabase update with report_status failed:", {
-                message: err1.message,
-                code: err1.code,
-                details: err1.details,
-                hint: err1.hint,
-            });
-            console.warn("[OpenRad] Retrying without report_status column (column may not exist yet)...");
-
-            // Fallback: retry updating only report_data (works even if report_status column doesn't exist)
-            const { error: err2 } = await supabase
+            // Try update with report_status column
+            const { error: err1 } = await supabase
                 .from('reports')
-                .update({ report_data: updatedData })
+                .update({ report_data: updatedData, report_status: status })
                 .eq('id', supabaseRowId);
 
-            supabaseError = err2;
-            if (err2) {
-                console.error("[OpenRad] Supabase fallback update also failed:", {
-                    message: err2.message,
-                    code: err2.code,
-                    details: err2.details,
-                    hint: err2.hint,
-                });
+            if (err1) {
+                console.warn("[OpenRad] Supabase update with report_status failed:", err1.message);
+                // Fallback without the column
+                const { error: err2 } = await supabase
+                    .from('reports')
+                    .update({ report_data: updatedData })
+                    .eq('id', supabaseRowId);
+                if (err2) {
+                    console.error("[OpenRad] Supabase fallback update also failed:", err2.message);
+                } else {
+                    console.log("[OpenRad] Fallback update succeeded (report_status column may be missing).");
+                }
             } else {
-                console.log("[OpenRad] Fallback update succeeded (report_data updated, but report_status column may be missing — run the migration SQL).");
+                console.log("[OpenRad] Supabase report status updated successfully:", status);
             }
-        } else {
-            console.log("[OpenRad] Supabase report status updated successfully:", status);
         }
     }
 
-    // 3. Update localStorage
-    try {
-        const localReportsStr = localStorage.getItem("openrad_reports");
-        if (localReportsStr) {
-            const localReports = JSON.parse(localReportsStr);
-            const reportIdToMatch = updatedData?.report_header?.report_id || id;
-
-            const index = localReports.findIndex((r: any) =>
-                r.report_data?.report_header?.report_id === id ||
-                r.id === id ||
-                (reportIdToMatch && r.report_data?.report_header?.report_id === reportIdToMatch)
-            );
-
-            if (index !== -1) {
-                // Update the deep property
-                // Simplify: We always constructed updatedData above (either from DB or Local), so just use it.
-                if (updatedData) {
-                    localReports[index].report_data = updatedData;
-                }
-
-                // Sync urgency top-level
-                if (localReports[index].report_data?.urgency) {
-                    localReports[index].urgency = localReports[index].report_data.urgency;
-                }
-
-                localStorage.setItem("openrad_reports", JSON.stringify(localReports));
-                console.log("Report status updated in localStorage");
-                return true;
-            }
-        }
-    } catch (err) {
-        console.error("Error updating localStorage:", err);
-    }
-
-    // If we acted on Supabase, return based on that error. 
-    // If we only acted on LocalStorage (implied by reaching here without returning true above, but actually the return true above handles the LS success case),
-    // we should return false if we didn't find it in LS and didn't have Supabase.
-
-    // However, if Supabase succeeded (supabaseError is null) or we skipped it, we might want to return true mostly to not block UI.
-    // Ideally we returned true in the LS block if that worked.
-
-    return !supabaseError;
+    return localSuccess;
 }
 
+// ─── Clear All Reports ───────────────────────────────────────────────────────
 export async function clearAllReports() {
-    // 1. Clear localStorage
+    // 1. Clear local SQLite
     try {
-        localStorage.removeItem("openrad_reports");
-        console.log("Cleared localStorage reports");
+        await fetch('/api/reports/clear', { method: 'DELETE' });
+        console.log("Cleared SQLite reports");
     } catch (e) {
-        console.error("Error clearing localStorage:", e);
+        console.error("Error clearing SQLite:", e);
     }
 
     // 2. Clear Supabase
+    await ensureSupabaseConfig();
     const supabase = getSupabaseClient();
     if (supabase) {
         const { error } = await supabase
             .from('reports')
             .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows (neq a UUID that definitely doesn't exist or just use a dummy filter if needed, technically delete() without filters deletes all but Supabase prompts for it. Using neq id 0 is a safe way to say 'all')
-
-        // Actually, Supabase delete() usually requires a filter. 
-        // A common pattern to delete all is `.neq('id', 0)` or similar if ID is integer, or `.gt('id', '00000000-0000-0000-0000-000000000000')` for UUID.
-        // Let's rely on client-side logic: if we want to clear board, we clear what we can.
+            .neq('id', '00000000-0000-0000-0000-000000000000');
 
         if (error) {
             console.error("Error clearing Supabase reports:", error);
@@ -596,82 +578,4 @@ export async function clearAllReports() {
     }
 
     return true;
-}
-
-function mockReportResponse(data: PatientContext): ReportData[] {
-    // Try to load profile for mock data
-    let footer: {
-        prepared_by: string;
-        department: string;
-        report_status: ReportStatus; // Explicit type
-        hospital_name: string;
-    } = {
-        prepared_by: "OpenRad AI",
-        department: "Radiology",
-        report_status: "Pending",
-        hospital_name: "General Hospital"
-    };
-
-    if (typeof window !== 'undefined') {
-        const savedProfile = localStorage.getItem("openrad_profile");
-        if (savedProfile) {
-            const profile = JSON.parse(savedProfile);
-            if (profile.fullName) footer.prepared_by = profile.fullName;
-            if (profile.department) footer.department = profile.department;
-            if (profile.hospitalName) footer.hospital_name = profile.hospitalName;
-        }
-    }
-
-    return [
-        {
-            report_header: {
-                hospital_name: footer.hospital_name,
-                department: footer.department,
-                report_title: "Radiology Report",
-                report_id: `RAD-${Date.now()}`,
-                report_date: new Date().toISOString(),
-            },
-            patient: {
-                name: data.fullName,
-                age: data.age,
-                gender: data.gender,
-            },
-            clinical_information: {
-                symptoms: data.symptoms,
-                history: data.history,
-                indication: data.indication,
-            },
-            study: {
-                modality: data.modality,
-                examination: `${data.modality} Scan`,
-                views: "Standard Views",
-            },
-            findings: [
-                {
-                    anatomical_region: "Lungs",
-                    observation: "Clear fields, no consolidation.",
-                    status: "normal",
-                },
-                {
-                    anatomical_region: "Heart",
-                    observation: "Normal size and shape.",
-                    status: "normal",
-                },
-            ],
-            impression: [
-                "Normal study.",
-                "No acute abnormalities detected."
-            ],
-            urgency: "Routine",
-            recommendations: [
-                "Routine follow-up."
-            ],
-            report_footer: {
-                prepared_by: footer.prepared_by,
-                department: footer.department,
-                report_status: footer.report_status,
-            },
-            disclaimer: "This AI-generated report is for reference only and must be verified by a licensed radiologist.",
-        },
-    ];
 }

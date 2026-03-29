@@ -20,6 +20,7 @@ interface FullReportOverlayProps {
     currentUser: { name: string; role: string };
     reportId?: string;
     imageSrc?: string | null;
+    images?: string[];
 }
 
 export function FullReportOverlay({
@@ -35,7 +36,8 @@ export function FullReportOverlay({
     onAddComment,
     currentUser,
     reportId,
-    imageSrc
+    imageSrc,
+    images = []
 }: FullReportOverlayProps) {
     const [isImageCollapsed, setIsImageCollapsed] = React.useState(false);
     const [selectedTemplate, setSelectedTemplate] = React.useState<string>('standard');
@@ -49,17 +51,14 @@ export function FullReportOverlay({
         setLocalLogs(report.collaboration?.logs || []);
 
         // Load template preference
-        try {
-            const savedConfig = localStorage.getItem("openrad_appearance");
-            if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                if (config.reportTemplate) {
-                    setSelectedTemplate(config.reportTemplate);
+        fetch('/api/settings?type=appearance')
+            .then(res => res.json())
+            .then(config => {
+                if (config.template) {
+                    setSelectedTemplate(config.template);
                 }
-            }
-        } catch (e) {
-            console.error("Error loading template preference:", e);
-        }
+            })
+            .catch(e => console.error("Error loading template preference:", e));
     }, [report.collaboration]);
 
     const handleLocalAddComment = (text: string) => {
@@ -200,7 +199,12 @@ export function FullReportOverlay({
             <div className={`relative transition-all duration-300 ease-in-out border-b border-border-primary bg-black ${isImageCollapsed ? 'h-[0px] border-b-0' : 'h-[45vh]'} shrink-0 group`}>
                 <div className={`absolute top-0 left-0 w-full h-full ${isImageCollapsed ? 'invisible' : 'visible'}`}>
                     <ImageViewer
-                        imageSrc={imageSrc}
+                        imageSrc={imageSrc || report.image_data || null}
+                        images={
+                            images.length > 0 ? images :
+                            report.images_data && report.images_data.length > 0 ? report.images_data :
+                            report.image_data ? [report.image_data] : []
+                        }
                         className="w-full h-full"
                         isCollapsed={isImageCollapsed}
                         onToggleCollapse={() => { }}

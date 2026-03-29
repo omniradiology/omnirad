@@ -43,3 +43,9 @@ next-env.d.ts
 # backups
 old_openrad/
 OpenRad guidlines.md
+
+# database
+data/
+sqlite.db
+*.db
+*.db-journal

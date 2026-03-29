@@ -16,26 +16,34 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
     const [hospitalName, setHospitalName] = React.useState("");
     const [logo, setLogo] = React.useState("");
 
-    // Load saved settings
+    // Load saved settings from SQLite
     React.useEffect(() => {
-        const saved = localStorage.getItem("openrad_appearance");
-        if (saved) {
-            const data = JSON.parse(saved);
-            setTheme(data.theme || "dark");
-            const loadedTemplate = data.template || "standard";
-            setSelectedTemplate(loadedTemplate);
-            setActiveTemplate(loadedTemplate);
-            setHospitalName(data.hospitalName || "");
-            setLogo(data.logo || "");
-        }
+        fetch('/api/settings?type=appearance')
+            .then(res => res.json())
+            .then(data => {
+                setTheme(data.theme || "dark");
+                const loadedTemplate = data.template || "standard";
+                setSelectedTemplate(loadedTemplate);
+                setActiveTemplate(loadedTemplate);
+                setHospitalName(data.hospitalName || "");
+                setLogo(data.logo || "");
+            })
+            .catch(e => console.error("Error loading appearance:", e));
     }, []);
+
+    const saveSettings = (settings: any) => {
+        fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'appearance', data: settings }),
+        }).catch(e => console.error("Error saving appearance:", e));
+    };
 
     const handleThemeChange = (newTheme: string) => {
         setTheme(newTheme);
         saveSettings({ theme: newTheme, template: activeTemplate, hospitalName, logo });
         onThemeChange?.(newTheme);
 
-        // Apply theme to document
         if (newTheme === "light") {
             document.documentElement.classList.remove("dark");
         } else {
@@ -43,12 +51,10 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
         }
     };
 
-    // UI Selection only
     const handleTemplateSelect = (newTemplate: string) => {
         setSelectedTemplate(newTemplate);
     };
 
-    // Commit selection
     const handleActivateTemplate = () => {
         setActiveTemplate(selectedTemplate);
         saveSettings({ theme, template: selectedTemplate, hospitalName, logo });
@@ -63,10 +69,6 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
         if (field === "logo") setLogo(value);
 
         saveSettings(updates);
-    };
-
-    const saveSettings = (settings: any) => {
-        localStorage.setItem("openrad_appearance", JSON.stringify(settings));
     };
 
     return (
@@ -107,7 +109,7 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                     </div>
                 </div>
 
-                {/* Report Template Selector - Visual Interface */}
+                {/* Report Template Selector */}
                 <div className="space-y-6 pt-6 border-t border-border-primary">
                     <div className="flex justify-between items-center">
                         <div>
@@ -130,20 +132,16 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                                 }`}
                             onClick={() => handleTemplateSelect('standard')}
                         >
-                            {/* Mini Preview: Standard */}
                             <div className="aspect-[3/4] w-full bg-white p-3 pointer-events-none relative shadow-inner">
                                 <div className="h-full w-full border border-gray-100 flex flex-col p-2 scale-90 origin-top">
-                                    {/* Header */}
                                     <div className="border-b-2 border-gray-800 pb-1 mb-2">
                                         <div className="h-2 w-3/4 bg-gray-900 mb-1 rounded-sm"></div>
                                         <div className="h-1 w-1/2 bg-gray-500 rounded-sm"></div>
                                     </div>
-                                    {/* Patient Box */}
                                     <div className="flex gap-1 mb-2">
                                         <div className="w-1/2 h-8 bg-gray-100 rounded-sm"></div>
                                         <div className="w-1/2 h-8 bg-gray-100 rounded-sm"></div>
                                     </div>
-                                    {/* Body */}
                                     <div className="space-y-1">
                                         <div className="h-1 w-1/3 bg-gray-800 mb-1 rounded-sm"></div>
                                         <div className="h-0.5 w-full bg-gray-300 mb-2"></div>
@@ -153,7 +151,6 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                                             <div className="h-1 w-full bg-gray-200 rounded-sm"></div>
                                         </div>
                                     </div>
-                                    {/* Footer */}
                                     <div className="mt-auto pt-2 border-t-2 border-gray-800 flex justify-between">
                                         <div className="h-2 w-8 bg-gray-300 rounded-sm"></div>
                                         <div className="h-6 w-12 border border-dashed border-gray-300 rounded-sm"></div>
@@ -180,17 +177,13 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                                 }`}
                             onClick={() => handleTemplateSelect('modern')}
                         >
-                            {/* Mini Preview: Modern */}
                             <div className="aspect-[3/4] w-full bg-white p-3 pointer-events-none relative shadow-inner">
                                 <div className="h-full w-full flex flex-col scale-90 origin-top bg-white">
-                                    {/* Header - Blue */}
                                     <div className="bg-slate-900 h-8 w-full mb-2 p-1 flex flex-col justify-center">
                                         <div className="h-1.5 w-1/2 bg-white/20 rounded-sm mb-0.5"></div>
                                         <div className="h-1 w-1/3 bg-white/10 rounded-sm"></div>
                                     </div>
-                                    {/* Info Strip */}
                                     <div className="h-6 w-full bg-slate-100 mb-2 rounded-sm border-b border-slate-200"></div>
-                                    {/* Body Cards */}
                                     <div className="space-y-2 px-1">
                                         <div className="border border-slate-100 rounded bg-white p-1 shadow-sm">
                                             <div className="h-1 w-1/4 bg-blue-500 mb-1 rounded-full"></div>
@@ -226,22 +219,18 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                                 }`}
                             onClick={() => handleTemplateSelect('minimal')}
                         >
-                            {/* Mini Preview: Minimal */}
                             <div className="aspect-[3/4] w-full bg-white p-3 pointer-events-none relative shadow-inner">
                                 <div className="h-full w-full flex flex-col p-1 font-mono scale-90 origin-top">
-                                    {/* Header Line */}
                                     <div className="flex justify-between border-b border-black pb-1 mb-1">
                                         <div className="h-1.5 w-1/3 bg-black rounded-sm"></div>
                                         <div className="h-1 w-1/4 bg-gray-400 rounded-sm"></div>
                                     </div>
-                                    {/* Grid Info */}
                                     <div className="grid grid-cols-4 gap-1 border-b border-black pb-2 mb-2">
                                         <div className="h-2 bg-gray-100"></div>
                                         <div className="h-2 bg-gray-100"></div>
                                         <div className="h-2 bg-gray-100"></div>
                                         <div className="h-2 bg-gray-100"></div>
                                     </div>
-                                    {/* Dense List */}
                                     <div className="space-y-1">
                                         <div className="flex gap-1 border-b border-gray-100 pb-0.5">
                                             <div className="w-4 h-1 bg-gray-400"></div>
@@ -256,7 +245,6 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                                             <div className="w-full h-1 bg-gray-200"></div>
                                         </div>
                                     </div>
-                                    {/* Signature Footer */}
                                     <div className="mt-auto border-t border-black pt-1 flex justify-between items-end">
                                         <div className="h-1 w-10 bg-gray-300"></div>
                                         <div className="flex flex-col items-end">

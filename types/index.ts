@@ -35,6 +35,9 @@ export interface PatientContext {
     history: string;
     modality: string;
     image?: File | null;
+    images?: File[];
+    isDicom?: boolean;
+    dicomMetadata?: any; // Will use DicomMetadata type
 }
 
 export interface Finding {
@@ -73,8 +76,37 @@ export interface ReportData {
     report_footer: ReportFooter;
     disclaimer: string;
     image_data?: string; // Base64 encoded image
+    images_data?: string[]; // Array of Base64 encoded images
     collaboration?: {
         comments: Comment[];
         logs: AuditLog[];
     };
+}
+
+export interface DicomMetadata {
+    patientName?: string;
+    patientId?: string;
+    patientBirthDate?: string;
+    patientSex?: string;
+    studyDate?: string;
+    studyTime?: string;
+    modality?: string;
+    institutionName?: string;
+    studyDescription?: string;
+    seriesDescription?: string;
+    bodyPartExamined?: string;
+    referringPhysicianName?: string;
+    accessionNumber?: string;
+    transferSyntaxUID?: string;
+    rows?: number;
+    columns?: number;
+    numberOfFrames?: number;
+    bitsAllocated?: number;
+}
+
+export interface DicomExtractionResult {
+    success: boolean;
+    metadata?: DicomMetadata;
+    images?: string[]; // Base64 JPEGs or Blob URLs
+    error?: string;
 }

@@ -13,65 +13,29 @@ export default function HistoryPage() {
     const [loading, setLoading] = React.useState(true);
     const [selectedReportId, setSelectedReportId] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState("");
-    const [statusFilter, setStatusFilter] = React.useState<string>("All");
-    // Default to Supabase now that it's connected, remove "Both"
-    const [dataSource, setDataSource] = React.useState<"Local" | "Supabase">("Supabase");
-
+    const [sourceFilter, setSourceFilter] = React.useState<string>("Local SQLite");
     React.useEffect(() => {
         loadReports();
-    }, [dataSource]);
+    }, []);
 
     const loadReports = async () => {
         setLoading(true);
-        let data: any[] = [];
-
         try {
-            if (dataSource === "Local") {
-                data = JSON.parse(localStorage.getItem("openrad_reports") || "[]");
-            } else {
-                // Load from Supabase (getReports fetches everything, effectively standardizing on Supabase call for now)
-                // We'll explicitly use the library function which prioritizes Supabase if available
-                const allReports = await getReports();
-                // Filter based on ID format to distinguish source roughly if needed, 
-                // but getReports merges. For pure source control, we might need a tighter loop, 
-                // but usually the DB reports have UUIDs and Local have `local_`.
+            const allReports = await getReports();
 
-                // Let's rely on standard fetch and filter in memory for cleaner UX if users mix
-                // But user requested specific toggle. 
-                // Actually `getReports` merges. Let's filter the result of `getReports`?
-                // Or better: Re-implement explicit fetching to respect the strict toggle.
+            // Sort by Date DESC (Newest First)
+            allReports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-                // Fetching strictly for the toggle:
-                if (dataSource === "Supabase") {
-                    // We need to bypass the merge in getReports to be strict? 
-                    // Actually getReports is fine, let's just filter the result.
-                    // Supabase IDs are UUIDs (36 chars), Local are "local_..."
-                    data = allReports.filter((r: any) => !r.id.startsWith("local_"));
-                }
-            }
+            setReports(allReports || []);
         } catch (err) {
             console.error("Error loading reports:", err);
-        }
-
-        // Sort by Date DESC (Newest First)
-        data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-        setReports(data || []);
-        setLoading(false);
-    };
-
-    const handleClearHistory = () => {
-        if (dataSource === "Supabase") {
-            alert("To clear Supabase history, please use the Supabase Dashboard for safety.");
-            return;
-        }
-        if (window.confirm("Are you sure you want to clear all LOCAL history?")) {
-            localStorage.removeItem("openrad_reports");
-            loadReports();
+            setReports([]);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Filter reports based on search and status
+    // Filter reports based on search and source
     const filteredReports = reports.filter(report => {
         const reportData = report.report_data;
         if (!reportData) return false;
@@ -82,11 +46,17 @@ export default function HistoryPage() {
             reportData.study?.examination?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             reportData.study?.modality?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        // Status filter
-        const status = reportData.report_footer?.report_status || 'Pending';
-        const matchesStatus = statusFilter === "All" || status === statusFilter;
+        // Source filter
+        let matchesSource = false;
+        if (sourceFilter === "Local SQLite") {
+            // Include 'Local' and 'Synced' (since Synced means it's available locally too)
+            matchesSource = report._source === 'Local' || report._source === 'Synced';
+        } else if (sourceFilter === "Supabase Cloud") {
+            // Include 'Supabase' and 'Synced' (since Synced means it's available in cloud too)
+            matchesSource = report._source === 'Supabase' || report._source === 'Synced';
+        }
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesSource;
     });
 
     const selectedReportObj = reports.find(r => r.id === selectedReportId);
@@ -117,22 +87,6 @@ export default function HistoryPage() {
                     <h2 className="text-2xl font-bold text-text-heading tracking-tight">Report History</h2>
                     <p className="text-text-secondary text-sm">Manage and view your generated radiology reports.</p>
                 </div>
-
-                <div className="flex items-center gap-3 bg-bg-surface p-1.5 rounded-lg border border-border-primary shadow-sm">
-                    <div className="flex items-center gap-2 px-3">
-                        <Database size={14} className="text-primary-main" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Source:</span>
-                    </div>
-                    <select
-                        value={dataSource}
-                        onChange={(e) => setDataSource(e.target.value as "Local" | "Supabase")}
-                        className="bg-bg-surface border border-border-primary rounded-md py-1.5 pl-2 pr-8 text-sm font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-main/20 cursor-pointer shadow-sm hover:border-primary-main/50 transition-colors"
-                    >
-                        <option value="Supabase">Supabase Cloud</option>
-                        <option value="Local">Local Storage</option>
-                    </select>
-
-                </div>
             </div>
 
             {/* Controls Bar */}
@@ -147,17 +101,15 @@ export default function HistoryPage() {
                         className="w-full pl-10 pr-4 py-2.5 bg-bg-surface border border-border-primary rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main transition-all shadow-sm"
                     />
                 </div>
-                <div className="relative w-full md:w-48">
-                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <div className="relative w-full md:w-56">
+                    <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                     <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+                        value={sourceFilter}
+                        onChange={(e) => setSourceFilter(e.target.value)}
                         className="w-full pl-10 pr-8 py-2.5 bg-bg-surface border border-border-primary rounded-lg text-sm text-text-primary appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main shadow-sm"
                     >
-                        <option value="All">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
+                        <option value="Local SQLite">Local SQLite</option>
+                        <option value="Supabase Cloud">Supabase Cloud</option>
                     </select>
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                         <svg className="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -173,7 +125,7 @@ export default function HistoryPage() {
                     <div className="col-span-3">Examination</div>
                     <div className="col-span-2">Date & Time</div>
                     <div className="col-span-2">Urgency</div>
-                    <div className="col-span-2 text-right">Status</div>
+                    <div className="col-span-2 text-right">Status & Source</div>
                 </div>
 
                 {/* Table Body */}
@@ -191,7 +143,7 @@ export default function HistoryPage() {
                             <div>
                                 <h3 className="text-base font-medium text-text-heading">No reports found</h3>
                                 <p className="text-sm text-text-secondary mt-1">
-                                    {searchQuery || statusFilter !== "All" ? "Try adjusting your filters" : "Generate a new report to get started"}
+                                    {searchQuery || sourceFilter !== "Local SQLite" ? "Try adjusting your filters" : "Generate a new report to get started"}
                                 </p>
                             </div>
                         </div>
@@ -201,6 +153,7 @@ export default function HistoryPage() {
                                 const reportData = report.report_data;
                                 const status = reportData?.report_footer?.report_status || 'Pending';
                                 const urgency = reportData.urgency || 'Routine';
+                                const source = report._source || 'Local';
 
                                 return (
                                     <div
@@ -211,7 +164,7 @@ export default function HistoryPage() {
                                         {/* Patient Column (3) */}
                                         <div className="col-span-3">
                                             <div className="font-medium text-text-heading text-sm group-hover:text-primary-main transition-colors">
-                                                {reportData.patient.name}
+                                                {reportData.patient?.name || report.patient_name || "Unknown Patient"}
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-1 text-xs text-text-secondary">
                                                 <User size={12} />
@@ -258,8 +211,8 @@ export default function HistoryPage() {
                                             </Badge>
                                         </div>
 
-                                        {/* Status Column (2) */}
-                                        <div className="col-span-2 text-right">
+                                        {/* Status & Source Column (2) */}
+                                        <div className="col-span-2 flex flex-col items-end justify-center gap-1.5">
                                             <Badge
                                                 variant="outline"
                                                 className={`
@@ -271,6 +224,11 @@ export default function HistoryPage() {
                                             >
                                                 {status}
                                             </Badge>
+                                            
+                                            <div className="flex items-center gap-1 text-[9px] font-semibold tracking-wider text-text-muted">
+                                                <Database size={10} />
+                                                {source.toUpperCase()}
+                                            </div>
                                         </div>
                                     </div>
                                 );
