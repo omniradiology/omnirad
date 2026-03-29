@@ -19,8 +19,8 @@ OpenRad is a modern, responsive web application designed for radiologists and me
 
 - **AI-Powered Report Generation**: Upload a medical image (X-Ray, CT, MRI, Ultrasound), input patient details, and receive an AI-drafted standard medical report.
 - **Hybrid Storage Model**:
-  - **Cloud Sync**: Securely sync and manage reports via a Supabase PostgreSQL database.
-  - **Local First**: Lightning-fast offline viewing and local caching using browser `localStorage`.
+  - **Cloud Sync**: Securely sync and manage reports via a Supabase PostgreSQL database. (Note: heavy DICOM images are automatically stripped before cloud upload to save space and bandwidth).
+  - **Local First**: Lightning-fast offline viewing, persistent storage, and full DICOM image caching using a deep-integrated local **SQLite** database (powered by Drizzle ORM).
 - **Customizable Appearance**: Native Dark and Light modes using modern Tailwind CSS v4 variables with dynamic theme switching that avoids UI flashing.
 - **Report Templates**: Multiple structured report template styles (Standard, Modern, Minimal).
 - **PDF Export**: Generate perfectly formatted medical PDF reports seamlessly.
@@ -31,8 +31,8 @@ OpenRad is a modern, responsive web application designed for radiologists and me
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router, React 19)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Database Backend**: [Supabase](https://supabase.com/)
-- **State Management**: React Hooks & Context + `localStorage`
+- **Database**: Local SQLite (via Drizzle ORM) & [Supabase](https://supabase.com/)
+- **State Management**: React Hooks & Context
 - **PDF Generation**: `html2pdf.js`
 - **Icons**: `lucide-react`
 
@@ -41,7 +41,7 @@ OpenRad is a modern, responsive web application designed for radiologists and me
 1. **Patient & Image Input**: The user uploads a medical image and fills out a clinical context form via the Next.js frontend.
 2. **AI Inference**: The app triggers an external webhook (e.g., an n8n automated workflow) and sends the image/patient data. The webhook communicates with an AI model (like Google Gemini or OpenAI) to analyze the image and draft a structured report.
 3. **Review & Edit**: The drafted report is returned to the app instantly. A medical professional reviews the findings, edits the content using the built-in rich text editor if necessary, and either Approves or Rejects the draft.
-4. **Export & Storage**: Once approved, the report can be exported to a beautifully structured PDF. A copy is saved to the local browser storage, and if configured, synced remotely to the user's Supabase instance.
+4. **Export & Storage**: Once approved, the report can be exported to a beautifully structured PDF. A full copy (including the image pixel data) is seamlessly saved to the local SQLite database, and if configured, a lightweight text-only copy is synced remotely to the user's Supabase instance.
 
 ## 📖 How to Use
 
@@ -85,7 +85,7 @@ You need Node.js installed on your local machine.
 All configurations can be done directly from the app's **Settings UI**:
 - **n8n Webhook URL**: Insert the endpoint responsible for your medical AI-processing workflow.
 - **Supabase Credentials**: Enter your project URL and Anon Key to activate Cloud History and User Management features.
-- All configurations entered are securely saved locally to your browser and not tracked by source control.
+- All configurations entered are securely saved locally to your SQLite database and not tracked by source control.
 
 ## 🗄️ Supabase Database Setup (Optional Cloud Sync)
 
