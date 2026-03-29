@@ -102,12 +102,22 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                     if (descParts.length > 0) defaultIndication = descParts.join(' - ');
                 }
 
+                let matchedModality = prev.modality;
+                if (result.metadata?.modality) {
+                    const m = result.metadata.modality.toUpperCase();
+                    if (m === 'MR') matchedModality = 'MRI';
+                    else if (m === 'US') matchedModality = 'Ultrasound';
+                    else if (m === 'CT') matchedModality = 'CT';
+                    else if (['CR', 'DX', 'PX', 'XA', 'RF'].includes(m)) matchedModality = 'X-Ray';
+                    else matchedModality = result.metadata.modality; // fallback to raw string
+                }
+
                 return {
                     ...prev,
                     fullName: prev.fullName || result.metadata?.patientName || "",
                     age: prev.age || (result.metadata?.patientBirthDate ? calculateAge(result.metadata.patientBirthDate) : 0),
                     gender: prev.gender || (result.metadata?.patientSex === 'F' ? 'F' : 'M'),
-                    modality: prev.modality || result.metadata?.modality || "X-Ray",
+                    modality: matchedModality,
                     indication: defaultIndication,
                 };
             });
