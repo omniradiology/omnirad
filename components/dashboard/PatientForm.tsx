@@ -104,12 +104,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
 
                 let matchedModality = prev.modality;
                 if (result.metadata?.modality) {
-                    const m = result.metadata.modality.toUpperCase();
-                    if (m === 'MR') matchedModality = 'MRI';
-                    else if (m === 'US') matchedModality = 'Ultrasound';
-                    else if (m === 'CT') matchedModality = 'CT';
-                    else if (['CR', 'DX', 'PX', 'XA', 'RF'].includes(m)) matchedModality = 'X-Ray';
-                    else matchedModality = result.metadata.modality; // fallback to raw string
+                    matchedModality = result.metadata.modality;
                 }
 
                 return {
@@ -250,12 +245,13 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                 <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Study Details</h3>
                                 <div>
                                     <Label htmlFor="modality">Modality *</Label>
-                                    <select id="modality" className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={formData.modality} onChange={handleChange}>
-                                        <option value="X-Ray">X-Ray</option>
-                                        <option value="CT">CT</option>
-                                        <option value="MRI">MRI</option>
-                                        <option value="Ultrasound">Ultrasound</option>
-                                    </select>
+                                    <Input id="modality" list="modality-options" placeholder="e.g. X-Ray, CT, MRI" value={formData.modality} onChange={handleChange} />
+                                    <datalist id="modality-options">
+                                        <option value="X-Ray" />
+                                        <option value="CT" />
+                                        <option value="MRI" />
+                                        <option value="Ultrasound" />
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -412,12 +408,8 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                         <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Study Details</h3>
                                         <div>
                                             <Label htmlFor="modality">Modality * <FieldBadge filled={!!formData.modality} /></Label>
-                                            <select id="modality" className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={formData.modality} onChange={handleChange}>
-                                                <option value="X-Ray">X-Ray</option>
-                                                <option value="CT">CT</option>
-                                                <option value="MRI">MRI</option>
-                                                <option value="Ultrasound">Ultrasound</option>
-                                            </select>
+                                            <Input id="modality" list="modality-options" placeholder="e.g. X-Ray, CT, MRI" value={formData.modality} onChange={handleChange} />
+                                            {/* (Datalist is already defined in the manual tab above, but having a duplicate or single shared one works fine. Browsers attach via ID) */}
                                         </div>
                                     </div>
 
