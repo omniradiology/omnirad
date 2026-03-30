@@ -390,15 +390,95 @@ export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: I
         </div>
     );
 
-    // Filmstrip (fullscreen only)
-    const filmstrip = images.length > 1 && (
-        <div className="shrink-0 flex gap-1 px-2 py-1.5 bg-[#0d0f13] border-t border-white/8 overflow-x-auto scrollbar-none">
-            {images.map((img, i) => (
-                <button key={i} onClick={() => { setCurrentImageIndex(i); setMeasurementPoints([]); }}
-                    className={`shrink-0 w-14 h-14 rounded overflow-hidden border-2 transition-all ${i === currentImageIndex ? 'border-blue-500' : 'border-transparent opacity-40 hover:opacity-75 hover:border-white/20'}`}>
-                    <img src={img} alt={`Frame ${i + 1}`} className="w-full h-full object-cover" />
+    // ── Cine loop (play/pause for multi-image) ──
+    const [isPlaying, setIsPlaying] = React.useState(false);
+    const [fps, setFps] = React.useState(8);
+    const playIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+    React.useEffect(() => {
+        if (isPlaying && images.length > 1) {
+            playIntervalRef.current = setInterval(() => {
+                setCurrentImageIndex(prev => {
+                    const next = prev + 1;
+                    return next >= images.length ? 0 : next;
+                });
+            }, 1000 / fps);
+        } else {
+            if (playIntervalRef.current) {
+                clearInterval(playIntervalRef.current);
+                playIntervalRef.current = null;
+            }
+        }
+        return () => {
+            if (playIntervalRef.current) {
+                clearInterval(playIntervalRef.current);
+                playIntervalRef.current = null;
+            }
+        };
+    }, [isPlaying, fps, images.length]);
+
+    // ── Slice navigation bar (OHIF-style) — shared between embedded and fullscreen ──
+    const sliceNavBar = images.length > 1 && (
+        <div className="shrink-0 bg-[#0d1117] border-t border-white/10 px-3 py-2 flex flex-col gap-1.5">
+            {/* Main row: play + slider + counter */}
+            <div className="flex items-center gap-2">
+                {/* Play/Pause */}
+                <button
+                    onClick={() => setIsPlaying(p => !p)}
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-all text-sm shrink-0
+                        ${isPlaying
+                            ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                            : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                        }`}
+                    title={isPlaying ? 'Pause' : 'Play cine loop'}
+                >
+                    {isPlaying ? '⏸' : '▶'}
                 </button>
-            ))}
+
+                {/* Scrub slider */}
+                <input
+                    type="range"
+                    min={0}
+                    max={images.length - 1}
+                    value={currentImageIndex}
+                    onChange={e => { setCurrentImageIndex(parseInt(e.target.value, 10)); setMeasurementPoints([]); }}
+                    className="flex-1 h-1.5 appearance-none bg-white/10 rounded-full cursor-pointer
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:shadow-lg
+                        [&::-webkit-slider-thumb]:shadow-blue-500/40 [&::-webkit-slider-thumb]:cursor-grab
+                        [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5
+                        [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-0
+                        [&::-moz-range-thumb]:cursor-grab"
+                    style={{
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentImageIndex / (images.length - 1)) * 100}%, rgba(255,255,255,0.1) ${(currentImageIndex / (images.length - 1)) * 100}%, rgba(255,255,255,0.1) 100%)`
+                    }}
+                />
+
+                {/* Slice counter */}
+                <span className="text-[11px] text-white/70 font-mono tabular-nums min-w-[5rem] text-right select-none shrink-0">
+                    {currentImageIndex + 1} / {images.length}
+                </span>
+            </div>
+
+            {/* FPS control (only when playing) */}
+            {isPlaying && (
+                <div className="flex items-center gap-2 pl-9">
+                    <span className="text-[9px] text-white/40 uppercase tracking-wider">Speed</span>
+                    <input
+                        type="range"
+                        min={1}
+                        max={30}
+                        value={fps}
+                        onChange={e => setFps(parseInt(e.target.value, 10))}
+                        className="w-20 h-1 appearance-none bg-white/10 rounded-full cursor-pointer
+                            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5
+                            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white/50
+                            [&::-moz-range-thumb]:w-2.5 [&::-moz-range-thumb]:h-2.5
+                            [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white/50 [&::-moz-range-thumb]:border-0"
+                    />
+                    <span className="text-[9px] text-white/40 font-mono">{fps} fps</span>
+                </div>
+            )}
         </div>
     );
 
@@ -420,7 +500,7 @@ export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: I
         <div className="fixed inset-0 z-[9999] bg-[#0a0b0e] flex flex-col" style={{ isolation: 'isolate' }}>
             <DicomToolbar {...dicomProps} />
             {makeCanvas()}
-            {filmstrip}
+            {sliceNavBar}
             {statusBar}
         </div>,
         document.body
@@ -447,18 +527,10 @@ export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: I
 
                 {makeCanvas()}
 
-                {/* Embedded filmstrip (small thumbnails at bottom) */}
-                {images.length > 1 && !isCollapsed && (
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-1 bg-black/60 border border-white/10 p-1 rounded-xl backdrop-blur-md max-w-[85%] overflow-x-auto">
-                        {images.map((img, i) => (
-                            <button key={i} onClick={() => { setCurrentImageIndex(i); setMeasurementPoints([]); }}
-                                className={`shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === currentImageIndex ? 'border-blue-400 opacity-100' : 'border-transparent opacity-40 hover:opacity-75'}`}>
-                                <img src={img} alt={`Frame ${i + 1}`} className="w-full h-full object-cover" />
-                            </button>
-                        ))}
-                    </div>
-                )}
+                {/* Slice nav bar (replaces old thumbnails) */}
+                {!isCollapsed && sliceNavBar}
             </div>
         </>
     );
 }
+

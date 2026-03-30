@@ -23,6 +23,36 @@ function getNumber(dataSet: dicomParser.DataSet, tag: string): number | undefine
     return undefined;
 }
 
+/**
+ * Formats the patient name from DICOM but does not filter out technical names.
+ */
+function formatPatientName(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+
+    // Replace DICOM ^ separator with spaces
+    let name = raw.replace(/\^/g, ' ').trim();
+    if (name.length === 0) return undefined;
+
+    // Proper case formatting: "DOE^JOHN" or "doe john" -> "Doe John"
+    // (Only applies to words separated by spaces. Things like Ultra_fast_Brain will become Ultra_fast_brain)
+    name = name
+        .split(/\s+/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
+    return name;
+}
+
+/**
+ * Returns the patient ID as-is, trimmed.
+ */
+function formatPatientId(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const id = raw.trim();
+    if (id.length === 0) return undefined;
+    return id;
+}
+
 export async function parseDicomMetadata(file: File): Promise<DicomExtractionResult> {
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -32,10 +62,17 @@ export async function parseDicomMetadata(file: File): Promise<DicomExtractionRes
         // This throws if the file is not a valid DICOM file
         const dataSet = dicomParser.parseDicom(byteArray);
         
-        // Extract required tags
+        // Extract raw tags
+        const rawPatientName = getString(dataSet, 'x00100010');
+        const rawPatientId = getString(dataSet, 'x00100020');
+
+        // Format names but allow all values
+        const cleanName = formatPatientName(rawPatientName);
+        const cleanId = formatPatientId(rawPatientId);
+
         const metadata: DicomMetadata = {
-            patientName: getString(dataSet, 'x00100010'),
-            patientId: getString(dataSet, 'x00100020'),
+            patientName: cleanName,
+            patientId: cleanId,
             patientBirthDate: getString(dataSet, 'x00100030'),
             patientSex: getString(dataSet, 'x00100040'),
             modality: getString(dataSet, 'x00080060'),
@@ -57,11 +94,6 @@ export async function parseDicomMetadata(file: File): Promise<DicomExtractionRes
             bitsAllocated: getNumber(dataSet, 'x00280100'),
             numberOfFrames: getNumber(dataSet, 'x00280008') || 1, // Default to 1 if missing
         };
-        
-        // Minor cleanups for DICOM standard formatting (e.g. ^ used for spaces in names)
-        if (metadata.patientName) {
-            metadata.patientName = metadata.patientName.replace(/\^/g, ' ').trim();
-        }
 
         return {
             success: true,
@@ -75,3 +107,4 @@ export async function parseDicomMetadata(file: File): Promise<DicomExtractionRes
         };
     }
 }
+

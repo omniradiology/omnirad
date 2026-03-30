@@ -28,6 +28,7 @@ export interface AuditLog {
 
 export interface PatientContext {
     fullName: string;
+    patientId: string;
     age: number;
     gender: string;
     indication: string;
@@ -56,6 +57,7 @@ export interface ReportData {
     };
     patient: {
         name: string;
+        patient_id?: string;
         age: number;
         gender: string;
     };

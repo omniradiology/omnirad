@@ -24,6 +24,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
     const [dragActive, setDragActive] = React.useState(false)
     const [formData, setFormData] = React.useState<PatientContext>({
         fullName: "",
+        patientId: "",
         age: 0,
         gender: "M",
         indication: "",
@@ -110,6 +111,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                 return {
                     ...prev,
                     fullName: prev.fullName || result.metadata?.patientName || "",
+                    patientId: prev.patientId || result.metadata?.patientId || "",
                     age: prev.age || (result.metadata?.patientBirthDate ? calculateAge(result.metadata.patientBirthDate) : 0),
                     gender: prev.gender || (result.metadata?.patientSex === 'F' ? 'F' : 'M'),
                     modality: matchedModality,
@@ -161,11 +163,11 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
     }
 
     // Helper: field status badge for DICOM auto-fill
-    const FieldBadge = ({ filled }: { filled: boolean }) => (
-        filled 
-            ? <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-medium ml-2">✓ DICOM</span>
-            : <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-medium ml-2">Required</span>
-    );
+    const FieldBadge = ({ filled, optional = false }: { filled: boolean, optional?: boolean }) => {
+        if (filled) return <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-medium">✓ DICOM</span>;
+        if (optional) return <span className="text-[9px] bg-slate-500/15 text-slate-400 px-1.5 py-0.5 rounded font-medium">Missing (Optional)</span>;
+        return <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-medium">Required</span>;
+    };
 
     const isDicomLoaded = activeTab === 'dicom' && dicomFile && dicomMeta;
 
@@ -369,15 +371,19 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                         </div>
                                         <div className="grid grid-cols-12 gap-4">
                                             <div className="col-span-12 md:col-span-6">
-                                                <Label htmlFor="fullName">Full Name * <FieldBadge filled={!!formData.fullName} /></Label>
+                                                <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Full Name * <FieldBadge filled={!!formData.fullName} /></Label>
                                                 <Input id="fullName" placeholder="e.g. John Doe" value={formData.fullName} onChange={handleChange} />
                                             </div>
-                                            <div className="col-span-6 md:col-span-3">
-                                                <Label htmlFor="age">Age * <FieldBadge filled={!!formData.age} /></Label>
+                                            <div className="col-span-12 md:col-span-6">
+                                                <Label htmlFor="patientId" className="flex flex-wrap items-center gap-2">Patient ID <FieldBadge filled={!!formData.patientId} optional={true} /></Label>
+                                                <Input id="patientId" placeholder="e.g. PAT-001" value={formData.patientId} onChange={handleChange} />
+                                            </div>
+                                            <div className="col-span-6 md:col-span-6">
+                                                <Label htmlFor="age" className="flex flex-wrap items-center gap-2">Age * <FieldBadge filled={!!formData.age} /></Label>
                                                 <Input id="age" placeholder="00" type="number" value={formData.age || ''} onChange={handleChange} />
                                             </div>
-                                            <div className="col-span-6 md:col-span-3">
-                                                <Label htmlFor="gender">Gender <FieldBadge filled={true} /></Label>
+                                            <div className="col-span-6 md:col-span-6">
+                                                <Label htmlFor="gender" className="flex flex-wrap items-center gap-2">Gender <FieldBadge filled={true} /></Label>
                                                 <select id="gender" className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={formData.gender} onChange={handleChange}>
                                                     <option value="M">Male</option>
                                                     <option value="F">Female</option>
@@ -390,15 +396,15 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Clinical Context</h3>
                                         <div>
-                                            <Label htmlFor="indication">Indication * <FieldBadge filled={!!formData.indication} /></Label>
+                                            <Label htmlFor="indication" className="flex flex-wrap items-center gap-2">Indication * <FieldBadge filled={!!formData.indication} /></Label>
                                             <Input id="indication" placeholder="e.g. Rule out pneumonia" value={formData.indication} onChange={handleChange} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="symptoms">Symptoms <FieldBadge filled={!!formData.symptoms} /></Label>
+                                            <Label htmlFor="symptoms" className="flex flex-wrap items-center gap-2">Symptoms <FieldBadge filled={!!formData.symptoms} /></Label>
                                             <Input id="symptoms" placeholder="e.g. Cough, fever" value={formData.symptoms} onChange={handleChange} />
                                         </div>
                                         <div>
-                                            <Label htmlFor="history">Patient History <FieldBadge filled={!!formData.history} /></Label>
+                                            <Label htmlFor="history" className="flex flex-wrap items-center gap-2">Patient History <FieldBadge filled={!!formData.history} /></Label>
                                             <Textarea id="history" placeholder="Relevant medical history..." className="resize-none h-20" value={formData.history} onChange={handleChange} />
                                         </div>
                                     </div>
@@ -407,7 +413,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Study Details</h3>
                                         <div>
-                                            <Label htmlFor="modality">Modality * <FieldBadge filled={!!formData.modality} /></Label>
+                                            <Label htmlFor="modality" className="flex flex-wrap items-center gap-2">Modality * <FieldBadge filled={!!formData.modality} /></Label>
                                             <Input id="modality" list="modality-options" placeholder="e.g. X-Ray, CT, MRI" value={formData.modality} onChange={handleChange} />
                                             {/* (Datalist is already defined in the manual tab above, but having a duplicate or single shared one works fine. Browsers attach via ID) */}
                                         </div>

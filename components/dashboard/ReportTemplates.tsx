@@ -138,6 +138,12 @@ export const PdfStandardTemplate: React.FC<ReportTemplateProps> = ({ report }) =
                                         <td style={styles.detailsLabel}>Patient Name:</td>
                                         <td style={{ fontWeight: 'bold' }}>{report.patient.name}</td>
                                     </tr>
+                                    {report.patient.patient_id && (
+                                    <tr>
+                                        <td style={styles.detailsLabel}>Patient ID:</td>
+                                        <td>{report.patient.patient_id}</td>
+                                    </tr>
+                                    )}
                                     <tr>
                                         <td style={styles.detailsLabel}>Age / Gender:</td>
                                         <td>{report.patient.age} / {report.patient.gender}</td>
@@ -285,6 +291,12 @@ export const StandardTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
                                     <td className="font-bold w-[110px] pb-2 align-top" style={{ color: '#374151' }}>Patient Name:</td>
                                     <td className="font-bold uppercase pb-2 align-top" style={{ color: '#111827' }}>{report.patient.name}</td>
                                 </tr>
+                                {report.patient.patient_id && (
+                                <tr>
+                                    <td className="font-bold pb-2 align-top" style={{ color: '#374151' }}>Patient ID:</td>
+                                    <td className="font-medium pb-2 align-top" style={{ color: '#111827' }}>{report.patient.patient_id}</td>
+                                </tr>
+                                )}
                                 <tr>
                                     <td className="font-bold pb-2 align-top" style={{ color: '#374151' }}>Age / Gender:</td>
                                     <td className="font-medium pb-2 align-top" style={{ color: '#111827' }}>{report.patient.age} / {report.patient.gender === 'M' ? 'Male' : 'Female'}</td>
@@ -498,6 +510,7 @@ export const ModernTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
                         <p className="text-xs font-bold text-slate-500 uppercase">Patient</p>
                         <p className="font-bold text-slate-900 text-lg">{report.patient.name}</p>
                         <p className="text-slate-600">{report.patient.age}Y • {report.patient.gender === 'M' ? 'Male' : 'Female'}</p>
+                        {report.patient.patient_id && <p className="text-xs text-slate-500 font-mono">ID: {report.patient.patient_id}</p>}
                     </div>
                     <div>
                         <p className="text-xs font-bold text-slate-500 uppercase">Exam</p>
@@ -611,6 +624,7 @@ export const MinimalTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
                 <div>
                     <span className="block text-[10px] font-bold uppercase text-gray-500">Patient</span>
                     <span className="font-bold block truncate">{report.patient.name}</span>
+                    {report.patient.patient_id && <span className="block text-[10px] font-mono text-gray-400">ID: {report.patient.patient_id}</span>}
                 </div>
                 <div>
                     <span className="block text-[10px] font-bold uppercase text-gray-500">Details</span>

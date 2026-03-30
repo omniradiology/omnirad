@@ -45,25 +45,36 @@ export default function Home() {
       }
 
       let dicomBase64: string | null = null;
+      let dicomSlices: string[] = [];
       if (data.isDicom && dicomRef?.current) {
           try {
-              dicomBase64 = await dicomRef.current.captureFrame();
+              const totalFrames = dicomRef.current.getTotalFrames?.() || 1;
+              if (totalFrames > 1) {
+                  // Multi-slice study: capture ALL slices
+                  dicomSlices = await dicomRef.current.captureMultipleFrames(totalFrames);
+                  dicomBase64 = dicomSlices[0] || null;
+                  console.log(`[OpenRad] Captured all ${dicomSlices.length} slices from ${totalFrames} total frames`);
+              } else {
+                  // Single frame
+                  dicomBase64 = await dicomRef.current.captureFrame();
+                  if (dicomBase64) dicomSlices = [dicomBase64];
+              }
           } catch (e) {
-              console.error("Failed to capture DICOM frame for upload", e);
+              console.error("Failed to capture DICOM frame(s) for upload", e);
           }
       }
 
       // For DICOM: use the captured JPEG base64 as the preview
       // For manual: use object URLs from the uploaded image files
-      if (data.isDicom && dicomBase64) {
-        setImagePreviews([dicomBase64]);
+      if (data.isDicom && dicomSlices.length > 0) {
+        setImagePreviews(dicomSlices);
         setPatientImages([]); // Don't store raw .dcm in patientImages
       } else {
         const files = data.images || (data.image ? [data.image] : []);
         setPatientImages(files);
       }
 
-      const reports = await generateReport(data, dicomBase64);
+      const reports = await generateReport(data, dicomBase64, dicomSlices);
       if (reports && reports.length > 0) {
         setReport(reports[0]);
       }

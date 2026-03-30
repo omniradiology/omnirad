@@ -296,6 +296,12 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, image
                             <div className="flex flex-col gap-1">
                                 <h1 className="text-2xl font-bold text-text-heading">{report.patient.name}</h1>
                                 <div className="flex items-center gap-2 text-sm text-text-muted">
+                                    {report.patient.patient_id && (
+                                        <>
+                                            <span className="font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded border border-white/10">ID: {report.patient.patient_id}</span>
+                                            <span>•</span>
+                                        </>
+                                    )}
                                     <span>{report.study.modality}</span>
                                     <span>•</span>
                                     <span>{report.study.examination}</span>

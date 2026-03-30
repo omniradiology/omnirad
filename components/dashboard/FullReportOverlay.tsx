@@ -105,7 +105,10 @@ export function FullReportOverlay({
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col">
                         <h1 className="text-xl font-bold text-text-heading">{report.patient.name}</h1>
-                        <span className="text-xs text-text-muted">{report.study.modality} • {report.study.examination}</span>
+                        <span className="text-xs text-text-muted">
+                            {report.patient.patient_id && <>{`ID: ${report.patient.patient_id}`} • </>}
+                            {report.study.modality} • {report.study.examination}
+                        </span>
                     </div>
                     <div className={`px-2 py-0.5 rounded-full ${statusColor} text-xs font-bold uppercase`}>
                         {report.report_footer.report_status}

@@ -13,7 +13,7 @@ async function fetchSettings(type: string) {
 }
 
 // ─── Generate Report ─────────────────────────────────────────────────────────
-export async function generateReport(data: PatientContext, dicomBase64?: string | null): Promise<ReportData[]> {
+export async function generateReport(data: PatientContext, dicomBase64?: string | null, dicomSlices?: string[]): Promise<ReportData[]> {
     // 1. Try to get webhook URL from SQLite config
     let webhookUrl: string | undefined = undefined;
 
@@ -58,9 +58,19 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
         
         const filesToProcess = data.images && data.images.length > 0 ? data.images : (data.image ? [data.image] : []);
         
-        if (data.isDicom && dicomBase64) {
-            // For DICOM, we append the Base64 extraction from Cornerstone directly
-            // Convert Base64 back to Blob so n8n still receives a binary form file
+        if (data.isDicom && dicomSlices && dicomSlices.length > 0) {
+            // Multi-slice DICOM: send each captured slice as a separate binary image
+            formData.append("sliceCount", String(dicomSlices.length));
+            for (let i = 0; i < dicomSlices.length; i++) {
+                const response = await fetch(dicomSlices[i]);
+                const blob = await response.blob();
+                formData.append(i === 0 ? "image" : `image_${i}`, blob, `dicom-slice-${i + 1}.jpg`);
+                imagesBase64.push(dicomSlices[i]);
+                if (i === 0) imageBase64 = dicomSlices[i];
+            }
+            console.log(`[OpenRad] Sending ${dicomSlices.length} DICOM slices to webhook`);
+        } else if (data.isDicom && dicomBase64) {
+            // Single-frame DICOM fallback
             const response = await fetch(dicomBase64);
             const blob = await response.blob();
             formData.append("image", blob, "dicom-preview.jpg");
@@ -166,6 +176,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
                 },
                 patient: {
                     name: report.patient?.name || data.fullName || 'Unknown Patient',
+                    patient_id: data.patientId || report.patient?.patient_id || '',
                     age: report.patient?.age || data.age || 0,
                     gender: report.patient?.gender || data.gender || 'Unknown'
                 },
