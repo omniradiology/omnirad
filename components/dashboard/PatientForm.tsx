@@ -20,7 +20,7 @@ interface PatientFormProps {
 }
 
 export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
-    const [activeTab, setActiveTab] = React.useState<'manual' | 'dicom'>('manual');
+    const [activeTab, setActiveTab] = React.useState<'manual' | 'dicom' | 'pacs'>('manual');
     const [dragActive, setDragActive] = React.useState(false)
     const [formData, setFormData] = React.useState<PatientContext>({
         fullName: "",
@@ -39,6 +39,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
     const [isDicomProcessing, setIsDicomProcessing] = React.useState(false);
     const [dicomFile, setDicomFile] = React.useState<File | null>(null);
     const [dicomMeta, setDicomMeta] = React.useState<DicomMetadata | null>(null);
+    const [pacsMeta, setPacsMeta] = React.useState<any>(null);
     const dicomViewerRef = React.useRef<DicomViewerHandle>(null);
     
     // Refs
@@ -49,6 +50,31 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
         const { id, value } = e.target;
         setFormData(prev => ({ ...prev, [id]: id === 'age' ? parseInt(value) || 0 : value }));
     }
+
+    // -- LOCAL STORAGE PACS LISTENER --
+    React.useEffect(() => {
+        if (typeof window !== "undefined") {
+            const pacsStr = localStorage.getItem("openrad_pending_pacs_import");
+            if (pacsStr) {
+                try {
+                    const data = JSON.parse(pacsStr);
+                    setPacsMeta(data);
+                    setActiveTab('pacs');
+                    setFormData(prev => ({
+                        ...prev,
+                        fullName: data.patientName || prev.fullName,
+                        patientId: data.patientId || prev.patientId,
+                        modality: data.modality || prev.modality,
+                        indication: data.indication || prev.indication,
+                        age: data.age || prev.age,
+                        gender: data.gender || prev.gender,
+                    }));
+                    // Clean up so it doesn't linger forever
+                    localStorage.removeItem("openrad_pending_pacs_import");
+                } catch (e) { }
+            }
+        }
+    }, []);
 
     // -- STANDARD MANUAL UPLOAD --
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,6 +183,8 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
     const handleSubmit = () => {
         if (activeTab === 'dicom') {
             onSubmit({ ...formData, image: dicomFile, images: dicomFile ? [dicomFile] : [], isDicom: true, dicomMetadata: dicomMeta }, dicomViewerRef as any);
+        } else if (activeTab === 'pacs') {
+            onSubmit({ ...formData, isPacs: true, pacsData: pacsMeta });
         } else {
             onSubmit(formData);
         }
@@ -192,8 +220,14 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                         className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-all ${
                             activeTab === 'dicom' ? 'bg-blue-600/10 border-blue-500 text-blue-500 shadow-sm' : 'bg-transparent border-border-primary text-text-muted hover:text-text-primary hover:border-text-muted'
                         }`}>
-                        DICOM
+                        DICOM File
                     </button>
+                    {activeTab === 'pacs' && (
+                        <button type="button" onClick={() => setActiveTab('pacs')}
+                            className="px-4 py-1.5 rounded-md border text-sm font-medium transition-all bg-emerald-600/10 border-emerald-500 text-emerald-500 shadow-sm">
+                            PACS Import
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -424,6 +458,83 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                     </Button>
                                 </>
                             )}
+                        </>
+                    )}
+
+                    {/* ══════════════ PACS TAB ══════════════ */}
+                    {activeTab === 'pacs' && pacsMeta && (
+                        <>
+                            <div className="pt-2">
+                                <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/5 to-emerald-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out" />
+                                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <h4 className="text-emerald-400 font-semibold text-sm">Study Linked via PACS</h4>
+                                        <p className="text-xs text-emerald-500/70 mt-0.5">DICOM files will stream directly to AI upon generation.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Patient Info — auto-filled */}
+                            <div className="space-y-4 border-t border-white/5 pt-5">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Patient Information</h3>
+                                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded flex items-center gap-1"><Info className="w-3 h-3"/> Imported from PACS</span>
+                                </div>
+                                <div className="grid grid-cols-12 gap-4">
+                                    <div className="col-span-12 md:col-span-6">
+                                        <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Full Name * <FieldBadge filled={true} /></Label>
+                                        <Input id="fullName" placeholder="e.g. John Doe" value={formData.fullName} onChange={handleChange} />
+                                    </div>
+                                    <div className="col-span-12 md:col-span-6">
+                                        <Label htmlFor="patientId" className="flex flex-wrap items-center gap-2">Patient ID <FieldBadge filled={true} optional={true} /></Label>
+                                        <Input id="patientId" placeholder="e.g. PAT-001" value={formData.patientId} onChange={handleChange} />
+                                    </div>
+                                    <div className="col-span-6 md:col-span-6">
+                                        <Label htmlFor="age" className="flex flex-wrap items-center gap-2">Age * <FieldBadge filled={!!formData.age} /></Label>
+                                        <Input id="age" placeholder="00" type="number" value={formData.age || ''} onChange={handleChange} />
+                                    </div>
+                                    <div className="col-span-6 md:col-span-6">
+                                        <Label htmlFor="gender" className="flex flex-wrap items-center gap-2">Gender <FieldBadge filled={true} /></Label>
+                                        <select id="gender" className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" value={formData.gender} onChange={handleChange}>
+                                            <option value="M">Male</option>
+                                            <option value="F">Female</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Clinical Context — mostly manual */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Clinical Context</h3>
+                                <div>
+                                    <Label htmlFor="indication" className="flex flex-wrap items-center gap-2">Indication * <FieldBadge filled={!!formData.indication} /></Label>
+                                    <Input id="indication" placeholder="e.g. Rule out pneumonia" value={formData.indication} onChange={handleChange} />
+                                </div>
+                                <div>
+                                    <Label htmlFor="symptoms" className="flex flex-wrap items-center gap-2">Symptoms <FieldBadge filled={!!formData.symptoms} /></Label>
+                                    <Input id="symptoms" placeholder="e.g. Cough, fever" value={formData.symptoms} onChange={handleChange} />
+                                </div>
+                                <div>
+                                    <Label htmlFor="history" className="flex flex-wrap items-center gap-2">Patient History <FieldBadge filled={!!formData.history} /></Label>
+                                    <Textarea id="history" placeholder="Relevant medical history..." className="resize-none h-20" value={formData.history} onChange={handleChange} />
+                                </div>
+                            </div>
+
+                            {/* Study Details — auto-filled */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Study Details</h3>
+                                <div>
+                                    <Label htmlFor="modality" className="flex flex-wrap items-center gap-2">Modality * <FieldBadge filled={true} /></Label>
+                                    <Input id="modality" list="modality-options" placeholder="e.g. X-Ray, CT, MRI" value={formData.modality} onChange={handleChange} />
+                                </div>
+                            </div>
+
+                            <Button className="w-full" size="lg" onClick={handleSubmit} disabled={isGenerating}>
+                                {isGenerating ? "Processing AI Analysis..." : "Generate Report from PACS"}
+                            </Button>
                         </>
                     )}
 

@@ -77,6 +77,14 @@ export default function Home() {
       const reports = await generateReport(data, dicomBase64, dicomSlices);
       if (reports && reports.length > 0) {
         setReport(reports[0]);
+        // Fast-track syncing image previews from the API result (crucial for PACS imports)
+        if (data.isPacs) {
+            if (reports[0].images_data && reports[0].images_data.length > 0) {
+                setImagePreviews(reports[0].images_data);
+            } else if (reports[0].image_data) {
+                setImagePreviews([reports[0].image_data]);
+            }
+        }
       }
     } catch (error) {
       console.error("Failed to generate report", error);

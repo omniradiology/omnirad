@@ -20,6 +20,9 @@ export async function GET() {
                 report_status: r.reportStatus,
                 report_data: reportData,
                 created_at: r.createdAt,
+                pacs_study_uid: r.pacsStudyUid,
+                pacs_series_uid: r.pacsSeriesUid,
+                pacs_source: r.pacsSource,
             };
         });
         return NextResponse.json(parsed);
@@ -46,6 +49,9 @@ export async function POST(request: NextRequest) {
             reportData: JSON.stringify(report_data),
             imageData: report_data.image_data || null,
             createdAt: new Date().toISOString(),
+            pacsStudyUid: report_data.pacs_info?.study_uid || null,
+            pacsSeriesUid: report_data.pacs_info?.series_uid || null,
+            pacsSource: report_data.pacs_info?.source || null,
         }).run();
 
         return NextResponse.json({ id: reportId, success: true });

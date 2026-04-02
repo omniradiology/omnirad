@@ -58,7 +58,31 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
         
         const filesToProcess = data.images && data.images.length > 0 ? data.images : (data.image ? [data.image] : []);
         
-        if (data.isDicom && dicomSlices && dicomSlices.length > 0) {
+        if (data.isPacs && data.pacsData) {
+            formData.append("isPacs", "true");
+            formData.append("pacsMetadata", JSON.stringify(data.pacsData));
+            
+            try {
+                // Fetch the default rendered representation by omitting frame parameter (handles single-frame and defaults to first frame for multi-frame)
+                const url = `/api/pacs/wado/render?studyUid=${data.pacsData.pacsStudyUid}&seriesUid=${data.pacsData.pacsSeriesUid}&instanceUid=${data.pacsData.firstInstanceUid}`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const blob = await res.blob();
+                    formData.append("image", blob, `pacs-instance.jpg`);
+                    
+                    const b64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    imageBase64 = b64;
+                    imagesBase64.push(b64);
+                }
+            } catch (e) {
+                console.error("[OpenRad] Error fetching PACS image:", e);
+            }
+        } else if (data.isDicom && dicomSlices && dicomSlices.length > 0) {
             // Multi-slice DICOM: send each captured slice as a separate binary image
             formData.append("sliceCount", String(dicomSlices.length));
             for (let i = 0; i < dicomSlices.length; i++) {
@@ -203,15 +227,18 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
                 image_data: report.image_data,
                 images_data: report.images_data,
                 collaboration: report.collaboration,
+                pacs_info: data.isPacs && data.pacsData ? {
+                    study_uid: data.pacsData.pacsStudyUid,
+                    series_uid: data.pacsData.pacsSeriesUid,
+                    source: data.pacsData.pacsSource || 'Orthanc'
+                } : report.pacs_info,
             };
         });
 
-        // Attach image data
+        // Attach true base64 image data (overriding any string descriptors sent back by the AI webhook)
         if (reports.length > 0) {
-            if (imageBase64 && !reports[0].image_data) reports[0].image_data = imageBase64;
-            if (imagesBase64.length > 0 && (!reports[0].images_data || reports[0].images_data.length === 0)) {
-                reports[0].images_data = imagesBase64;
-            }
+            if (imageBase64) reports[0].image_data = imageBase64;
+            if (imagesBase64.length > 0) reports[0].images_data = imagesBase64;
         }
 
         // Save the first report
@@ -266,6 +293,9 @@ export async function saveReport(report: ReportData) {
             urgency: report.urgency,
             report_status: report.report_footer?.report_status || 'Pending',
             report_data: cloudReportData,
+            pacs_study_uid: report.pacs_info?.study_uid || null,
+            pacs_series_uid: report.pacs_info?.series_uid || null,
+            pacs_source: report.pacs_info?.source || null,
             created_at: new Date().toISOString()
         }).select();
 

@@ -39,6 +39,8 @@ export interface PatientContext {
     images?: File[];
     isDicom?: boolean;
     dicomMetadata?: any; // Will use DicomMetadata type
+    isPacs?: boolean;
+    pacsData?: any;
 }
 
 export interface Finding {
@@ -82,6 +84,11 @@ export interface ReportData {
     collaboration?: {
         comments: Comment[];
         logs: AuditLog[];
+    };
+    pacs_info?: {
+        study_uid: string;
+        series_uid: string;
+        source: string;
     };
 }
 

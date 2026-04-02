@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, Input, Label, Button } from "@/components/ui/basic"
-import { Save, Trash2, AlertTriangle, Database, Skull, CheckCircle, X } from "lucide-react"
+import { Save, Trash2, AlertTriangle, Database, Skull, CheckCircle, X, Server } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { UserManagementPanel } from "@/components/dashboard/UserManagementPanel"
 import { AppearancePanel } from "@/components/dashboard/AppearancePanel"
@@ -12,7 +12,13 @@ export default function SettingsPage() {
     const [config, setConfig] = React.useState({
         n8nWebhookUrl: "",
         supabaseUrl: "",
-        supabaseAnonKey: ""
+        supabaseAnonKey: "",
+        pacsOrthancUrl: "",
+        pacsAuthType: "none",
+        pacsUsername: "",
+        pacsPassword: "",
+        pacsBearerToken: "",
+        pacsAeTitle: "",
     });
     const [isSaved, setIsSaved] = React.useState(false);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -32,6 +38,12 @@ export default function SettingsPage() {
                     n8nWebhookUrl: data.n8nWebhookUrl || "",
                     supabaseUrl: data.supabaseUrl || "",
                     supabaseAnonKey: data.supabaseAnonKey || "",
+                    pacsOrthancUrl: data.pacsOrthancUrl || "",
+                    pacsAuthType: data.pacsAuthType || "none",
+                    pacsUsername: data.pacsUsername || "",
+                    pacsPassword: data.pacsPassword || "",
+                    pacsBearerToken: data.pacsBearerToken || "",
+                    pacsAeTitle: data.pacsAeTitle || "",
                 });
             })
             .catch(e => console.error("Error loading config:", e))
@@ -39,6 +51,12 @@ export default function SettingsPage() {
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setConfig(prev => ({ ...prev, [id]: value }));
+        setIsSaved(false);
+    };
+
+    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const { id, value } = e.target;
         setConfig(prev => ({ ...prev, [id]: value }));
         setIsSaved(false);
@@ -156,6 +174,106 @@ export default function SettingsPage() {
                     >
                         <Save size={16} />
                         {isSaved ? "Saved!" : "Save Configuration"}
+                    </Button>
+                </CardContent>
+            </Card>
+
+            {/* PACS / Orthanc Configuration */}
+            <Card className="bg-bg-surface border-border-primary">
+                <CardHeader>
+                    <CardTitle className="text-text-heading flex items-center gap-2">
+                        <Server size={20} className="text-blue-500" />
+                        PACS & Orthanc Configuration
+                    </CardTitle>
+                    <p className="text-sm text-text-secondary">Connect to a DICOMweb-compliant PACS server (e.g. Orthanc).</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label htmlFor="pacsOrthancUrl" className="text-text-primary">DICOMweb Base URL *</Label>
+                        <Input
+                            id="pacsOrthancUrl"
+                            type="url"
+                            placeholder="http://localhost:8042/dicom-web"
+                            value={config.pacsOrthancUrl}
+                            onChange={handleChange}
+                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="pacsAuthType" className="text-text-primary">Authentication Type</Label>
+                            <select
+                                id="pacsAuthType"
+                                value={config.pacsAuthType}
+                                onChange={handleSelectChange}
+                                className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                                <option value="none">None</option>
+                                <option value="basic">Basic (Username/Password)</option>
+                                <option value="bearer">Bearer Token</option>
+                            </select>
+                        </div>
+                        <div>
+                            <Label htmlFor="pacsAeTitle" className="text-text-primary">Local AE Title (Optional)</Label>
+                            <Input
+                                id="pacsAeTitle"
+                                type="text"
+                                placeholder="OPENRAD"
+                                value={config.pacsAeTitle}
+                                onChange={handleChange}
+                                className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
+                            />
+                        </div>
+                    </div>
+
+                    {config.pacsAuthType === "basic" && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="pacsUsername" className="text-text-primary">Username</Label>
+                                <Input
+                                    id="pacsUsername"
+                                    type="text"
+                                    placeholder="orthanc"
+                                    value={config.pacsUsername}
+                                    onChange={handleChange}
+                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="pacsPassword" className="text-text-primary">Password</Label>
+                                <Input
+                                    id="pacsPassword"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={config.pacsPassword}
+                                    onChange={handleChange}
+                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {config.pacsAuthType === "bearer" && (
+                        <div>
+                            <Label htmlFor="pacsBearerToken" className="text-text-primary">Bearer Token</Label>
+                            <Input
+                                id="pacsBearerToken"
+                                type="password"
+                                placeholder="eyJhbGciOiJIUzI1NiIsInR..."
+                                value={config.pacsBearerToken}
+                                onChange={handleChange}
+                                className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                            />
+                        </div>
+                    )}
+
+                    <Button
+                        onClick={handleSave}
+                        className="w-full mt-4 bg-primary-main hover:bg-primary-hover text-white gap-2"
+                    >
+                        <Save size={16} />
+                        {isSaved ? "Saved!" : "Save PACS Configuration"}
                     </Button>
                 </CardContent>
             </Card>

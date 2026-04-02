@@ -16,6 +16,8 @@ interface ImageViewerProps {
     isCollapsed: boolean;
     onToggleCollapse: () => void;
     images?: string[];
+    forceFullscreen?: boolean;
+    onCloseFullscreen?: () => void;
 }
 
 interface MeasurementPoint { x: number; y: number; }
@@ -229,7 +231,7 @@ function DicomToolbar({
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: ImageViewerProps) {
+export function ImageViewer({ imageSrc, className, isCollapsed, images = [], forceFullscreen, onCloseFullscreen }: ImageViewerProps) {
     const [scale, setScale] = React.useState(1);
     const [position, setPosition] = React.useState({ x: 0, y: 0 });
     const [brightness, setBrightness] = React.useState(100);
@@ -242,7 +244,7 @@ export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: I
     const [measurementMode, setMeasurementMode] = React.useState(false);
     const [measurementPoints, setMeasurementPoints] = React.useState<MeasurementPoint[]>([]);
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
-    const [isFullscreen, setIsFullscreen] = React.useState(false);
+    const [isFullscreen, setIsFullscreen] = React.useState(forceFullscreen || false);
     const [showSliders, setShowSliders] = React.useState(false);
     const [mounted, setMounted] = React.useState(false);
 
@@ -343,7 +345,10 @@ export function ImageViewer({ imageSrc, className, isCollapsed, images = [] }: I
         onFlipH: handleFlipH, onFlipV: handleFlipV,
         measurementMode, onToggleMeasure: toggleMeasure,
         onReset: handleReset,
-        onClose: () => setIsFullscreen(false),
+        onClose: () => {
+            if (onCloseFullscreen) onCloseFullscreen();
+            else setIsFullscreen(false);
+        },
         brightness, onBrightness: setBrightness,
         contrast, onContrast: setContrast,
     };

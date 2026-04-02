@@ -9,6 +9,9 @@ export const reports = sqliteTable("reports", {
     reportStatus: text("report_status").default("Pending"),
     reportData: text("report_data").notNull(),           // JSON string of ReportData
     imageData: text("image_data"),                        // base64 image (can be large)
+    pacsStudyUid: text("pacs_study_uid"),
+    pacsSeriesUid: text("pacs_series_uid"),
+    pacsSource: text("pacs_source"),
     createdAt: text("created_at").notNull(),
 });
 
@@ -18,6 +21,12 @@ export const config = sqliteTable("config", {
     n8nWebhookUrl: text("n8n_webhook_url").default(""),
     supabaseUrl: text("supabase_url").default(""),
     supabaseAnonKey: text("supabase_anon_key").default(""),
+    pacsOrthancUrl: text("pacs_orthanc_url").default(""),
+    pacsAuthType: text("pacs_auth_type").default("none"),
+    pacsUsername: text("pacs_username").default(""),
+    pacsPassword: text("pacs_password").default(""),
+    pacsBearerToken: text("pacs_bearer_token").default(""),
+    pacsAeTitle: text("pacs_ae_title").default(""),
 });
 
 // ─── Profile Table (singleton) ───────────────────────────────────────────────

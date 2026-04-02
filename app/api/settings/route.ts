@@ -16,12 +16,24 @@ export async function GET(request: NextRequest) {
                         n8nWebhookUrl: "",
                         supabaseUrl: "",
                         supabaseAnonKey: "",
+                        pacsOrthancUrl: "",
+                        pacsAuthType: "none",
+                        pacsUsername: "",
+                        pacsPassword: "",
+                        pacsBearerToken: "",
+                        pacsAeTitle: "",
                     });
                 }
                 return NextResponse.json({
                     n8nWebhookUrl: row.n8nWebhookUrl || "",
                     supabaseUrl: row.supabaseUrl || "",
                     supabaseAnonKey: row.supabaseAnonKey || "",
+                    pacsOrthancUrl: row.pacsOrthancUrl || "",
+                    pacsAuthType: row.pacsAuthType || "none",
+                    pacsUsername: row.pacsUsername || "",
+                    pacsPassword: row.pacsPassword || "",
+                    pacsBearerToken: row.pacsBearerToken || "",
+                    pacsAeTitle: row.pacsAeTitle || "",
                 });
             }
             case "profile": {
@@ -82,6 +94,12 @@ export async function PUT(request: NextRequest) {
                         n8nWebhookUrl: data.n8nWebhookUrl || "",
                         supabaseUrl: data.supabaseUrl || "",
                         supabaseAnonKey: data.supabaseAnonKey || "",
+                        pacsOrthancUrl: data.pacsOrthancUrl || "",
+                        pacsAuthType: data.pacsAuthType || "none",
+                        pacsUsername: data.pacsUsername || "",
+                        pacsPassword: data.pacsPassword || "",
+                        pacsBearerToken: data.pacsBearerToken || "",
+                        pacsAeTitle: data.pacsAeTitle || "",
                     }).where(eq(config.id, 1)).run();
                 } else {
                     db.insert(config).values({
@@ -89,6 +107,12 @@ export async function PUT(request: NextRequest) {
                         n8nWebhookUrl: data.n8nWebhookUrl || "",
                         supabaseUrl: data.supabaseUrl || "",
                         supabaseAnonKey: data.supabaseAnonKey || "",
+                        pacsOrthancUrl: data.pacsOrthancUrl || "",
+                        pacsAuthType: data.pacsAuthType || "none",
+                        pacsUsername: data.pacsUsername || "",
+                        pacsPassword: data.pacsPassword || "",
+                        pacsBearerToken: data.pacsBearerToken || "",
+                        pacsAeTitle: data.pacsAeTitle || "",
                     }).run();
                 }
                 break;
