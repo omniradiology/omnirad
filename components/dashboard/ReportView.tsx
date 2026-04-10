@@ -41,16 +41,18 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, image
     }, [report]);
 
     React.useEffect(() => {
-        // Load current user from profile via API
-        fetch('/api/settings?type=profile')
+        // Load current authenticated user instead of global profile
+        fetch('/api/auth/me')
             .then(res => res.json())
             .then(data => {
-                setCurrentUser({
-                    name: data.fullName || "Dr. User",
-                    role: data.role || "Doctor"
-                });
+                if (data && !data.error) {
+                    setCurrentUser({
+                        name: data.fullName || "Dr. User",
+                        role: data.position || data.role || "Doctor"
+                    });
+                }
             })
-            .catch(e => console.error("Error loading profile:", e));
+            .catch(e => console.error("Error loading user profile:", e));
     }, []);
 
     const handleAddComment = async (text: string) => {

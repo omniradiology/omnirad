@@ -6,6 +6,7 @@ import { Save, Trash2, AlertTriangle, Database, Skull, CheckCircle, X, Server } 
 import { useRouter } from "next/navigation"
 import { UserManagementPanel } from "@/components/dashboard/UserManagementPanel"
 import { AppearancePanel } from "@/components/dashboard/AppearancePanel"
+import { AIConfigPanel } from "@/components/dashboard/AIConfigPanel"
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -79,7 +80,7 @@ export default function SettingsPage() {
             const data = await res.json();
             if (res.ok && data.success) {
                 setShowClearModal(false);
-                setSuccessMessage("All local reports have been cleared successfully!");
+                setSuccessMessage("All local reports and patients have been cleared successfully!");
                 setTimeout(() => setSuccessMessage(""), 4000);
             } else {
                 throw new Error(data.error || "Failed");
@@ -125,58 +126,8 @@ export default function SettingsPage() {
             {/* Appearance Settings */}
             <AppearancePanel />
 
-            {/* API Configuration */}
-            <Card className="bg-bg-surface border-border-primary">
-                <CardHeader>
-                    <CardTitle className="text-text-heading">API Configuration</CardTitle>
-                    <p className="text-sm text-text-secondary">Configure n8n webhook and Supabase connection</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="n8nWebhookUrl" className="text-text-primary">n8n Webhook URL</Label>
-                        <Input
-                            id="n8nWebhookUrl"
-                            type="url"
-                            placeholder="https://your-n8n-instance.com/webhook/..."
-                            value={config.n8nWebhookUrl}
-                            onChange={handleChange}
-                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="supabaseUrl" className="text-text-primary">Supabase URL</Label>
-                        <Input
-                            id="supabaseUrl"
-                            type="url"
-                            placeholder="https://your-project.supabase.co"
-                            value={config.supabaseUrl}
-                            onChange={handleChange}
-                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="supabaseAnonKey" className="text-text-primary">Supabase Anon Key</Label>
-                        <Input
-                            id="supabaseAnonKey"
-                            type="password"
-                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                            value={config.supabaseAnonKey}
-                            onChange={handleChange}
-                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
-                        />
-                    </div>
-
-                    <Button
-                        onClick={handleSave}
-                        className="w-full mt-4 bg-primary-main hover:bg-primary-hover text-white gap-2"
-                    >
-                        <Save size={16} />
-                        {isSaved ? "Saved!" : "Save Configuration"}
-                    </Button>
-                </CardContent>
-            </Card>
+            {/* AI Engine Configuration */}
+            <AIConfigPanel />
 
             {/* PACS / Orthanc Configuration */}
             <Card className="bg-bg-surface border-border-primary">
@@ -295,7 +246,7 @@ export default function SettingsPage() {
                         <AlertTriangle className="shrink-0 w-5 h-5" />
                         <div className="space-y-1">
                             <p className="font-semibold text-sm">Clear Local History</p>
-                            <p className="text-xs opacity-90">This will remove all reports from your Local Database ONLY. Cloud data will remain safe.</p>
+                            <p className="text-xs opacity-90">This will remove all reports AND patients from your Local Database ONLY. Cloud data will remain safe.</p>
                         </div>
                     </div>
 
@@ -304,7 +255,7 @@ export default function SettingsPage() {
                         className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center justify-center gap-2"
                     >
                         <Trash2 size={16} />
-                        Clear Local Report History
+                        Clear Local Reports & Patients
                     </Button>
 
                     {/* Divider */}
@@ -349,14 +300,14 @@ export default function SettingsPage() {
                                 <AlertTriangle className="w-6 h-6 text-red-500" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-lg font-semibold text-text-heading">Clear Local Report History?</h3>
-                                <p className="text-sm text-text-muted">This will permanently delete <strong>all reports</strong> from your local database. Your Supabase/Cloud data will remain safe.</p>
+                                <h3 className="text-lg font-semibold text-text-heading">Clear Local Report & Patient History?</h3>
+                                <p className="text-sm text-text-muted">This will permanently delete <strong>all reports and patients</strong> from your local database. Your Supabase/Cloud data will remain safe.</p>
                             </div>
                         </div>
                         <div className="flex gap-3 justify-end pt-2">
                             <Button variant="outline" className="border-border-card text-text-primary hover:bg-slate-100 dark:hover:bg-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:text-slate-900 dark:hover:text-white transition-all focus:ring-0" onClick={() => setShowClearModal(false)} disabled={isProcessing}>Cancel</Button>
                             <Button onClick={handleClearData} className="bg-red-600 hover:bg-red-700 text-white" disabled={isProcessing}>
-                                {isProcessing ? "Clearing..." : "Yes, Clear All Reports"}
+                                {isProcessing ? "Clearing..." : "Yes, Clear Local Data"}
                             </Button>
                         </div>
                     </div>

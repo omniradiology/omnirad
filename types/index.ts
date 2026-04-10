@@ -1,5 +1,20 @@
 export type ReportStatus = 'Pending' | 'Approved' | 'Rejected' | 'Final';
 
+export interface Patient {
+    id: string;
+    patientIdNumber?: string;
+    patientName: string;
+    dob?: string;
+    age?: number;
+    gender?: string;
+    mobile?: string;
+    address?: string;
+    contactInfo?: string;
+    notes?: string;
+    createdAt: string;
+    updatedAt?: string;
+}
+
 export interface ReportFooter {
     prepared_by: string;
     department: string;
@@ -30,6 +45,7 @@ export interface PatientContext {
     fullName: string;
     patientId: string;
     age: number;
+    dob?: string;
     gender: string;
     indication: string;
     symptoms: string;
@@ -61,6 +77,7 @@ export interface ReportData {
         name: string;
         patient_id?: string;
         age: number;
+        dob?: string;
         gender: string;
     };
     clinical_information: {
@@ -96,6 +113,7 @@ export interface DicomMetadata {
     patientName?: string;
     patientId?: string;
     patientBirthDate?: string;
+    patientAge?: string;
     patientSex?: string;
     studyDate?: string;
     studyTime?: string;

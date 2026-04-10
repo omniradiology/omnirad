@@ -27,22 +27,8 @@ export default function Home() {
   const handleGenerate = async (data: PatientContext, dicomRef?: React.RefObject<any>) => {
     setIsGenerating(true);
     try {
-      // Check if a webhook URL is configured (env or localStorage)
-      let hasWebhook = !!process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
-      if (!hasWebhook && typeof window !== 'undefined') {
-        try {
-          const res = await fetch('/api/settings?type=config');
-          if (res.ok) {
-            const config = await res.json();
-            hasWebhook = !!(config.n8nWebhookUrl && config.n8nWebhookUrl.trim());
-          }
-        } catch (e) { /* ignore */ }
-      }
+      // No longer need to check for n8n webhook since we use the local Python backend
 
-      if (!hasWebhook) {
-        alert("Please enter your n8n webhook URL in Settings to generate a report.");
-        return;
-      }
 
       let dicomBase64: string | null = null;
       let dicomSlices: string[] = [];
@@ -89,7 +75,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to generate report", error);
       const errMsg = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to generate report: ${errMsg}. Please check your n8n webhook URL in Settings and try again.`);
+      alert(`Failed to generate report: ${errMsg}. Please check your Python LangGraph Engine and try again.`);
     } finally {
       setIsGenerating(false);
     }

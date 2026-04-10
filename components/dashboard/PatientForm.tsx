@@ -7,6 +7,7 @@ import { Card, CardContent, Input, Label, Textarea, Button } from "@/components/
 import { PatientContext, DicomMetadata } from "@/types"
 import { parseDicomMetadata } from "@/lib/dicomMetadataParser"
 import { DicomViewerHandle } from "./DicomViewer"
+import { PatientSearch } from "@/components/patients/patient-search"
 
 // Client-only dynamic import for the DICOM canvas viewer (no SSR)
 const DicomViewer = dynamic(() => import('./DicomViewer').then(m => m.DicomViewer), { 
@@ -26,6 +27,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
         fullName: "",
         patientId: "",
         age: 0,
+        dob: "",
         gender: "M",
         indication: "",
         symptoms: "",
@@ -134,11 +136,25 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                     matchedModality = result.metadata.modality;
                 }
 
+                // Calculate age from DOB or directly from patientAge string like "032Y"
+                let derivedAge = 0;
+                if (result.metadata?.patientBirthDate) {
+                    derivedAge = calculateAge(result.metadata.patientBirthDate);
+                } else if (result.metadata?.patientAge) {
+                    const match = result.metadata.patientAge.match(/^0*(\d+)[YMWD]$/);
+                    if (match) {
+                        const val = parseInt(match[1]);
+                        if (result.metadata.patientAge.endsWith('Y')) derivedAge = val;
+                        else if (result.metadata.patientAge.endsWith('M')) derivedAge = Math.floor(val / 12);
+                    }
+                }
+
                 return {
                     ...prev,
                     fullName: prev.fullName || result.metadata?.patientName || "",
                     patientId: prev.patientId || result.metadata?.patientId || "",
-                    age: prev.age || (result.metadata?.patientBirthDate ? calculateAge(result.metadata.patientBirthDate) : 0),
+                    age: prev.age || derivedAge,
+                    dob: prev.dob || result.metadata?.patientBirthDate || "",
                     gender: prev.gender || (result.metadata?.patientSex === 'F' ? 'F' : 'M'),
                     modality: matchedModality,
                     indication: defaultIndication,
@@ -242,8 +258,20 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                 <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Patient Information</h3>
                                 <div className="grid grid-cols-12 gap-4">
                                     <div className="col-span-12 md:col-span-6">
-                                        <Label htmlFor="fullName">Full Name *</Label>
-                                        <Input id="fullName" placeholder="e.g. John Doe" value={formData.fullName} onChange={handleChange} />
+                                        <Label htmlFor="fullName">Patient / Search *</Label>
+                                        <PatientSearch 
+                                            value={formData.fullName}
+                                            onChange={(val) => setFormData(prev => ({ ...prev, fullName: val }))}
+                                            onSelect={(patient) => setFormData(prev => ({
+                                                ...prev,
+                                                fullName: patient.patientName,
+                                                patientId: patient.patientIdNumber || "",
+                                                age: patient.dob ? calculateAge(patient.dob) : prev.age,
+                                                dob: patient.dob || prev.dob,
+                                                gender: (patient.gender as any) || prev.gender
+                                            }))}
+                                            onNewPatient={() => {}}
+                                        />
                                     </div>
                                     <div className="col-span-6 md:col-span-3">
                                         <Label htmlFor="age">Age *</Label>
@@ -405,8 +433,20 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                         </div>
                                         <div className="grid grid-cols-12 gap-4">
                                             <div className="col-span-12 md:col-span-6">
-                                                <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Full Name * <FieldBadge filled={!!formData.fullName} /></Label>
-                                                <Input id="fullName" placeholder="e.g. John Doe" value={formData.fullName} onChange={handleChange} />
+                                                <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Patient / Search * <FieldBadge filled={!!formData.fullName} /></Label>
+                                                <PatientSearch 
+                                                    value={formData.fullName}
+                                                    onChange={(val) => setFormData(prev => ({ ...prev, fullName: val }))}
+                                                    onSelect={(patient) => setFormData(prev => ({
+                                                        ...prev,
+                                                        fullName: patient.patientName,
+                                                        patientId: patient.patientIdNumber || prev.patientId,
+                                                        age: patient.dob ? calculateAge(patient.dob) : prev.age,
+                                                        dob: patient.dob || prev.dob,
+                                                        gender: (patient.gender as any) || prev.gender
+                                                    }))}
+                                                    onNewPatient={() => {}}
+                                                />
                                             </div>
                                             <div className="col-span-12 md:col-span-6">
                                                 <Label htmlFor="patientId" className="flex flex-wrap items-center gap-2">Patient ID <FieldBadge filled={!!formData.patientId} optional={true} /></Label>
@@ -485,8 +525,20 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                                 </div>
                                 <div className="grid grid-cols-12 gap-4">
                                     <div className="col-span-12 md:col-span-6">
-                                        <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Full Name * <FieldBadge filled={true} /></Label>
-                                        <Input id="fullName" placeholder="e.g. John Doe" value={formData.fullName} onChange={handleChange} />
+                                        <Label htmlFor="fullName" className="flex flex-wrap items-center gap-2">Patient / Search * <FieldBadge filled={true} /></Label>
+                                        <PatientSearch 
+                                            value={formData.fullName}
+                                            onChange={(val) => setFormData(prev => ({ ...prev, fullName: val }))}
+                                            onSelect={(patient) => setFormData(prev => ({
+                                                ...prev,
+                                                fullName: patient.patientName,
+                                                patientId: patient.patientIdNumber || prev.patientId,
+                                                age: patient.dob ? calculateAge(patient.dob) : prev.age,
+                                                dob: patient.dob || prev.dob,
+                                                gender: (patient.gender as any) || prev.gender
+                                            }))}
+                                            onNewPatient={() => {}}
+                                        />
                                     </div>
                                     <div className="col-span-12 md:col-span-6">
                                         <Label htmlFor="patientId" className="flex flex-wrap items-center gap-2">Patient ID <FieldBadge filled={true} optional={true} /></Label>

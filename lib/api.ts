@@ -14,29 +14,10 @@ async function fetchSettings(type: string) {
 
 // ─── Generate Report ─────────────────────────────────────────────────────────
 export async function generateReport(data: PatientContext, dicomBase64?: string | null, dicomSlices?: string[]): Promise<ReportData[]> {
-    // 1. Try to get webhook URL from SQLite config
-    let webhookUrl: string | undefined = undefined;
+    // 1. Send to local Python FastAPI Microservice
+    let webhookUrl: string = "http://localhost:8000/generate_report";
+    console.log("[OpenRad] Using backend Python microservice at:", webhookUrl);
 
-    try {
-        const cfg = await fetchSettings("config");
-        if (cfg?.n8nWebhookUrl?.trim()) {
-            webhookUrl = cfg.n8nWebhookUrl.trim();
-            console.log("[OpenRad] Using webhook URL from settings:", webhookUrl);
-        }
-    } catch (e) {
-        console.error("[OpenRad] Error reading config:", e);
-    }
-
-    // Fallback to env variable
-    if (!webhookUrl && process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL) {
-        webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
-        console.log("[OpenRad] Using webhook URL from env variable:", webhookUrl);
-    }
-
-    if (!webhookUrl) {
-        console.error("[OpenRad] No webhook URL configured.");
-        throw new Error("No webhook URL configured. Please enter your n8n webhook URL in Settings.");
-    }
 
     try {
         const formData = new FormData();
@@ -116,35 +97,92 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
             }
         }
 
-        console.log("[OpenRad] Sending request to webhook:", webhookUrl);
-        console.log("[OpenRad] Payload fields:", {
-            patient_name: data.fullName,
-            patient_age: data.age,
-            patient_gender: data.gender,
-            symptoms: data.symptoms,
-            history: data.history,
-            indication: data.indication,
-            modality: data.modality,
-            images: filesToProcess.length > 0 ? filesToProcess.map((f: File) => `[binary file: ${f.name}, ${f.size} bytes]`) : null,
-        });
+        // Load active AI configuration (with real API key) for forwarding to Python backend
+        let aiConfig: any = null;
+        try {
+            const configRes = await fetch('/api/ai-config?mode=active_internal');
+            if (configRes.ok) {
+                aiConfig = await configRes.json();
+                console.log("[OpenRad] Loaded active AI config:", aiConfig.providerName, aiConfig.modelName);
+            } else {
+                console.warn("[OpenRad] No active AI configuration found. The Python backend may fail.");
+            }
+        } catch (e) {
+            console.warn("[OpenRad] Could not fetch AI config:", e);
+        }
+
+        // Load profile info for report header
+        let hospitalName = 'OpenRad Hospital';
+        let department = 'Radiology';
+        try {
+            const profileData = await fetchSettings("profile");
+            if (profileData) {
+                if (profileData.hospitalName) hospitalName = profileData.hospitalName;
+                if (profileData.department) department = profileData.department;
+            }
+        } catch (e) { /* ignore */ }
+
+        // Create proper JSON payload for Python Backend
+        const payload = {
+            patient: {
+                name: data.fullName,
+                age: data.age,
+                dob: data.dob,
+                gender: data.gender,
+                patient_id: data.patientId || ""
+            },
+            clinical_information: {
+                symptoms: data.symptoms,
+                history: data.history,
+                indication: data.indication
+            },
+            study: {
+                modality: data.modality,
+                is_dicom: data.isDicom,
+                is_pacs: data.isPacs
+            },
+            image: imageBase64 ? { type: "base64", data: imageBase64 } : null,
+            report_header: { hospital_name: hospitalName, department: department },
+            ai_config: aiConfig ? {
+                providerType: aiConfig.providerType,
+                providerName: aiConfig.providerName,
+                apiEndpointUrl: aiConfig.apiEndpointUrl,
+                apiSecretKey: aiConfig.apiSecretKey,
+                modelName: aiConfig.modelName,
+                maxTokens: aiConfig.maxTokens,
+                temperature: aiConfig.temperature,
+                timeoutSeconds: aiConfig.timeoutSeconds,
+                isVisionCapable: aiConfig.isVisionCapable,
+            } : null
+        };
+
+        console.log("[OpenRad] Sending request to Python Backend:", webhookUrl);
 
         const response = await fetch(webhookUrl, {
             method: "POST",
-            body: formData,
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload),
         });
 
-        console.log("[OpenRad] Webhook response status:", response.status, response.statusText);
+        console.log("[OpenRad] Backend response status:", response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Could not read error body');
-            console.error("[OpenRad] Webhook error response body:", errorText);
+            console.error("[OpenRad] Backend error response body:", errorText);
             throw new Error(`API call failed: ${response.status} ${response.statusText}`);
         }
 
         const rawResponse = await response.json();
-        console.log("[OpenRad] Webhook raw response:", rawResponse);
+        console.log("[OpenRad] Backend raw response:", rawResponse);
 
-        // Handle various response formats from n8n
+        // Check if the Python backend returned an error
+        if (rawResponse.failed || rawResponse.error) {
+            throw new Error(rawResponse.error || 'AI generation failed');
+        }
+
+        // Handle various response formats
         let reports: ReportData[];
         if (Array.isArray(rawResponse)) {
             reports = rawResponse;
@@ -256,6 +294,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
 // ─── Save Report ─────────────────────────────────────────────────────────────
 export async function saveReport(report: ReportData) {
     const reportId = `local_${Date.now()}`;
+    let linkedPatientId: string | null = null;
 
     // 1. Save to local SQLite via API
     try {
@@ -265,7 +304,9 @@ export async function saveReport(report: ReportData) {
             body: JSON.stringify({ id: reportId, report_data: report }),
         });
         if (res.ok) {
-            console.log("Report saved to SQLite:", reportId);
+            const data = await res.json();
+            linkedPatientId = data.patientId || null;
+            console.log("Report saved to SQLite:", reportId, "Linked Patient:", linkedPatientId);
         } else {
             console.error("Error saving to SQLite:", await res.text());
         }
@@ -281,6 +322,30 @@ export async function saveReport(report: ReportData) {
         return null;
     }
 
+    // Upsert Patient to Supabase first if we linked one locally
+    if (linkedPatientId) {
+        try {
+            const pRes = await fetch(`/api/patients/${linkedPatientId}`);
+            if (pRes.ok) {
+                const pData = await pRes.json();
+                const { error: pErr } = await supabase.from('patients').upsert({
+                    id: pData.id,
+                    patient_name: pData.patientName,
+                    patient_id_number: pData.patientIdNumber,
+                    date_of_birth: pData.dob,
+                    gender: pData.gender,
+                    contact_info: pData.contactInfo,
+                    notes: pData.notes,
+                    created_at: pData.createdAt,
+                    updated_at: pData.updatedAt
+                }, { onConflict: 'id' });
+                if (pErr) console.error("Error syncing patient to Supabase:", pErr);
+            }
+        } catch (e) {
+            console.error("Error fetching local patient for Supabase sync:", e);
+        }
+    }
+
     // Strip heavy base64 image data to save Supabase storage space
     const cloudReportData = { ...report };
     delete cloudReportData.image_data;
@@ -288,6 +353,7 @@ export async function saveReport(report: ReportData) {
 
     try {
         const { data, error } = await supabase.from('reports').insert({
+            patient_id: linkedPatientId,
             patient_name: report.patient.name,
             modality: report.study.examination,
             urgency: report.urgency,
@@ -467,10 +533,11 @@ export async function updateReportStatus(
     let userName = "System";
     let userRole = "System";
     try {
-        const profileData = await fetchSettings("profile");
-        if (profileData) {
-            if (profileData.fullName) userName = profileData.fullName;
-            if (profileData.role) userRole = profileData.role;
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.fullName) userName = data.fullName;
+            if (data.position || data.role) userRole = data.position || data.role;
         }
     } catch (e) { /* ignore */ }
 

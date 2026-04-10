@@ -1,8 +1,25 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+
+// ─── Patients Table ────────────────────────────────────────────────────────────
+export const patients = sqliteTable("patients", {
+    id: text("id").primaryKey(),
+    patientIdNumber: text("patient_id_number"),
+    patientName: text("patient_name").notNull(),
+    dob: text("date_of_birth"),
+    age: integer("age"),
+    gender: text("gender"),
+    mobile: text("mobile"),
+    address: text("address"),
+    contactInfo: text("contact_info"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at")
+});
 
 // ─── Reports Table ───────────────────────────────────────────────────────────
 export const reports = sqliteTable("reports", {
     id: text("id").primaryKey(),
+    patientId: text("patient_id").references(() => patients.id, { onDelete: 'cascade' }),
     patientName: text("patient_name"),
     modality: text("modality"),
     urgency: text("urgency"),
@@ -64,4 +81,44 @@ export const sessions = sqliteTable("sessions", {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id),
     expiresAt: integer("expires_at").notNull() // Unix timestamp
+});
+
+// ─── AI Settings & LangGraph Logs ───────────────────────────────────────────
+export const aiConfigurations = sqliteTable("ai_configurations", {
+    id: text("id").primaryKey(),
+    providerType: text("provider_type").notNull(), // 'cloud_api' | 'ollama' | 'custom_endpoint'
+    providerName: text("provider_name").notNull(), // e.g. "Google Gemini"
+    apiEndpointUrl: text("api_endpoint_url"),
+    apiSecretKey: text("api_secret_key"),
+    modelName: text("model_name").notNull(),
+    isActive: integer("is_active", { mode: 'boolean' }).default(false),
+    isVisionCapable: integer("is_vision_capable", { mode: 'boolean' }).default(false),
+    maxTokens: integer("max_tokens").default(4096),
+    temperature: real("temperature").default(0.3),
+    timeoutSeconds: integer("timeout_seconds").default(120),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at")
+});
+
+export const promptTemplates = sqliteTable("prompt_templates", {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    template: text("template").notNull(),
+    isActive: integer("is_active", { mode: 'boolean' }).default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at")
+});
+
+export const reportGenerationLogs = sqliteTable("report_generation_logs", {
+    id: text("id").primaryKey(),
+    reportId: text("report_id"),
+    aiConfigId: text("ai_config_id").references(() => aiConfigurations.id),
+    modelUsed: text("model_used"),
+    promptTemplateId: text("prompt_template_id"),
+    rawLlmResponse: text("raw_llm_response"),
+    parsedSuccessfully: integer("parsed_successfully", { mode: 'boolean' }),
+    retryCount: integer("retry_count"),
+    generationTimeMs: integer("generation_time_ms"),
+    errorMessage: text("error_message"),
+    createdAt: text("created_at").notNull()
 });

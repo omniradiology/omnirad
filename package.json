@@ -2,7 +2,9 @@
   "name": "open-rad",
   "version": "0.1.0",
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "concurrently -k -n \"NEXT,AI\" -c \"cyan,magenta\" \"npm run dev:next\" \"npm run dev:ai\"",
+    "dev:next": "next dev --webpack",
+    "dev:ai": "cd ai_service && python -m uv run main.py",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -34,6 +36,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",

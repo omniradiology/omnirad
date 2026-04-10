@@ -74,6 +74,7 @@ export async function parseDicomMetadata(file: File): Promise<DicomExtractionRes
             patientName: cleanName,
             patientId: cleanId,
             patientBirthDate: getString(dataSet, 'x00100030'),
+            patientAge: getString(dataSet, 'x00101010'),
             patientSex: getString(dataSet, 'x00100040'),
             modality: getString(dataSet, 'x00080060'),
             studyDate: getString(dataSet, 'x00080020'),

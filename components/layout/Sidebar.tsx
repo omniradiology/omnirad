@@ -1,7 +1,7 @@
 "use client"
 
 import Image from 'next/image';
-import { FileText, LayoutDashboard, Settings, User, Clock, LogOut, Server } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, User, Users, Clock, LogOut, Server } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -27,6 +27,12 @@ export function Sidebar() {
           icon={LayoutDashboard}
           label="Dashboard"
           isActive={pathname === '/'}
+        />
+        <NavItem
+          href="/patients"
+          icon={Users}
+          label="Patients"
+          isActive={pathname.startsWith('/patients')}
         />
         <NavItem
           href="/reports"

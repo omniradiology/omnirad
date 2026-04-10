@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { updateReportStatus, getReports } from "@/lib/api";
 import { ReportData, ReportStatus } from "@/types";
 import { Card, CardContent, Button } from "@/components/ui/basic";
@@ -22,10 +23,12 @@ import { ApprovalModal } from "@/components/dashboard/ApprovalModal";
 import { RejectionModal } from "@/components/dashboard/RejectionModal";
 
 export default function ReportsPage() {
+    const router = useRouter();
     const [reports, setReports] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [selectedReport, setSelectedReport] = React.useState<{ data: ReportData, id: string } | null>(null);
     const [processingId, setProcessingId] = React.useState<string | null>(null);
+    const [cameFromExternal, setCameFromExternal] = React.useState(false);
 
     // Modal State
     const [actionReport, setActionReport] = React.useState<{ id: string, name: string } | null>(null);
@@ -62,9 +65,23 @@ export default function ReportsPage() {
         setLoading(false);
     };
 
+    const searchParams = useSearchParams();
+    const autoOpenId = searchParams.get('id');
+
     React.useEffect(() => {
+        if (autoOpenId) setCameFromExternal(true);
         loadReports();
     }, []);
+
+    // Auto-open a report if ?id= is in the URL
+    React.useEffect(() => {
+        if (autoOpenId && reports.length > 0 && !selectedReport) {
+            const target = reports.find(r => r.id === autoOpenId);
+            if (target) {
+                setSelectedReport({ data: target.report_data, id: target.id });
+            }
+        }
+    }, [autoOpenId, reports]);
 
     React.useEffect(() => {
         if (selectedReport && reports.length > 0) {
@@ -161,10 +178,16 @@ export default function ReportsPage() {
                 <div className="flex-1 h-full bg-bg-primary p-4 overflow-hidden flex flex-col">
                     <Button
                         variant="ghost"
-                        onClick={() => setSelectedReport(null)}
+                        onClick={() => {
+                            if (cameFromExternal) {
+                                router.back();
+                            } else {
+                                setSelectedReport(null);
+                            }
+                        }}
                         className="mb-2 self-start gap-2"
                     >
-                        ← Back to Board
+                        ← {cameFromExternal ? 'Back' : 'Back to Board'}
                     </Button>
                     <div className="flex-1 overflow-hidden">
                         <ReportView
@@ -175,6 +198,16 @@ export default function ReportsPage() {
                         />
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    // If we arrived via ?id= and the report hasn't been selected yet, show a loader
+    // instead of flashing the board view
+    if (autoOpenId && !selectedReport) {
+        return (
+            <div className="h-full flex items-center justify-center bg-bg-primary">
+                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
             </div>
         );
     }
