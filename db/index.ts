@@ -134,6 +134,17 @@ if (!globalForDb.__openradSqlite) {
             created_at TEXT NOT NULL,
             FOREIGN KEY (ai_config_id) REFERENCES ai_configurations(id)
         );
+
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            viewer_actions TEXT,
+            references_data TEXT,
+            patient_id TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
     `);
 
         // ─── Migrations for existing databases ──────────────────────────────
@@ -197,6 +208,25 @@ if (!globalForDb.__openradSqlite) {
                 `);
             }
         } catch (migErr) { /* ignore */ }
+
+        // Add purpose, langsmith_api_key, langsmith_project columns to ai_configurations
+        try {
+            const aiCols = globalForDb.__openradSqlite!.pragma('table_info(ai_configurations)') as any[];
+            if (!aiCols.some((c: any) => c.name === 'purpose')) {
+                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN purpose TEXT DEFAULT 'report_generation';`);
+                console.log('[OpenRad Db] Migrated: Added purpose column to ai_configurations table.');
+            }
+            if (!aiCols.some((c: any) => c.name === 'langsmith_api_key')) {
+                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_api_key TEXT;`);
+                console.log('[OpenRad Db] Migrated: Added langsmith_api_key column to ai_configurations table.');
+            }
+            if (!aiCols.some((c: any) => c.name === 'langsmith_project')) {
+                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_project TEXT;`);
+                console.log('[OpenRad Db] Migrated: Added langsmith_project column to ai_configurations table.');
+            }
+        } catch (migErr) {
+            console.warn('[OpenRad Db] Migration check for ai_configurations copilot columns skipped:', migErr);
+        }
 
     } catch (e: any) {
         if (e.code === 'SQLITE_BUSY') {

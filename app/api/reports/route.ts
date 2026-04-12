@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         let linkedPatientId = "";
         
         // 1. Try to find by ID number first if provided
-        let existing = [];
+        let existing: any[] = [];
         if (pIdNumber) {
             existing = await db.select().from(patients).where(eq(patients.patientIdNumber, pIdNumber)).limit(1);
         }

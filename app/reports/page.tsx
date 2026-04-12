@@ -19,10 +19,11 @@ const getStatus = (r: any): ReportStatus => {
     return 'Pending';
 };
 
+import { Suspense } from "react";
 import { ApprovalModal } from "@/components/dashboard/ApprovalModal";
 import { RejectionModal } from "@/components/dashboard/RejectionModal";
 
-export default function ReportsPage() {
+function ReportsContent() {
     const router = useRouter();
     const [reports, setReports] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -305,6 +306,14 @@ export default function ReportsPage() {
                 onConfirm={handleRejectionConfirm}
             />
         </div>
+    );
+}
+
+export default function ReportsPage() {
+    return (
+        <Suspense fallback={<div className="h-full flex items-center justify-center p-8">Loading Reports...</div>}>
+            <ReportsContent />
+        </Suspense>
     );
 }
 

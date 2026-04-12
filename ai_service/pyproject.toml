@@ -7,8 +7,11 @@ requires-python = ">=3.13"
 dependencies = [
     "deepagents>=0.4.12",
     "fastapi>=0.135.3",
+    "langchain-google-genai>=2.1.0",
     "langchain-ollama>=0.3.0",
     "langchain-openai>=1.1.12",
+    "langgraph>=0.4.0",
+    "langsmith>=0.3.0",
     "pydantic>=2.12.5",
     "uvicorn>=0.44.0",
 ]

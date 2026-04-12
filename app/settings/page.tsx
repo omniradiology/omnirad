@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { UserManagementPanel } from "@/components/dashboard/UserManagementPanel"
 import { AppearancePanel } from "@/components/dashboard/AppearancePanel"
 import { AIConfigPanel } from "@/components/dashboard/AIConfigPanel"
+import { CopilotConfigPanel } from "@/components/dashboard/CopilotConfigPanel"
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -128,6 +129,9 @@ export default function SettingsPage() {
 
             {/* AI Engine Configuration */}
             <AIConfigPanel />
+
+            {/* AI Copilot Chat Configuration */}
+            <CopilotConfigPanel />
 
             {/* PACS / Orthanc Configuration */}
             <Card className="bg-bg-surface border-border-primary">

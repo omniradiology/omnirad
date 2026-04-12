@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,6 +13,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class CopilotChatRequest(BaseModel):
+    message: str
+    chat_history: List[Dict[str, str]] = []
+    patient_context: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
 
 class GenerateRequest(BaseModel):
     patient: Dict[str, Any]
@@ -35,6 +41,31 @@ async def generate_report(req: GenerateRequest):
         return report
     except Exception as e:
         return {"error": str(e), "failed": True}
+
+@app.get("/copilot/health")
+def copilot_health():
+    return {"status": "ok", "service": "copilot"}
+
+@app.post("/copilot/chat")
+async def copilot_chat(req: CopilotChatRequest):
+    from agent.copilot_workflow import execute_copilot_chat
+    
+    try:
+        result = await execute_copilot_chat(
+            message=req.message,
+            chat_history=req.chat_history,
+            patient_context=req.patient_context,
+        )
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "message": f"⚠️ Copilot error: {str(e)}",
+            "viewer_actions": [],
+            "references": [],
+            "error": str(e),
+        }
 
 @app.post("/test_ai_connection")
 async def test_ai_connection(req: Dict[str, Any]):

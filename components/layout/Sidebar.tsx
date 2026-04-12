@@ -1,7 +1,7 @@
 "use client"
 
 import Image from 'next/image';
-import { FileText, LayoutDashboard, Settings, User, Users, Clock, LogOut, Server } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, User, Users, Clock, LogOut, Server, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -51,6 +51,12 @@ export function Sidebar() {
           icon={Server}
           label="PACS Browser"
           isActive={pathname.startsWith('/pacs')}
+        />
+        <NavItem
+          href="/copilot"
+          icon={MessageSquare}
+          label="AI Copilot"
+          isActive={pathname.startsWith('/copilot')}
         />
         <div className="flex-1" /> {/* Spacer */}
         <NavItem

@@ -96,6 +96,9 @@ export const aiConfigurations = sqliteTable("ai_configurations", {
     maxTokens: integer("max_tokens").default(4096),
     temperature: real("temperature").default(0.3),
     timeoutSeconds: integer("timeout_seconds").default(120),
+    purpose: text("purpose").default("report_generation"), // 'report_generation' | 'copilot'
+    langsmithApiKey: text("langsmith_api_key"),
+    langsmithProject: text("langsmith_project"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at")
 });
@@ -121,4 +124,16 @@ export const reportGenerationLogs = sqliteTable("report_generation_logs", {
     generationTimeMs: integer("generation_time_ms"),
     errorMessage: text("error_message"),
     createdAt: text("created_at").notNull()
+});
+
+// ─── Chat Messages Table (AI Copilot) ────────────────────────────────────────
+export const chatMessages = sqliteTable("chat_messages", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionId: text("session_id").notNull(),
+    role: text("role").notNull(), // 'user' | 'assistant'
+    content: text("content").notNull(),
+    viewerActions: text("viewer_actions"), // JSON string of ViewerAction[]
+    references: text("references"),        // JSON string of Reference[]
+    patientId: text("patient_id"),
+    createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
 });
