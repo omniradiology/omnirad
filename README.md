@@ -39,15 +39,14 @@ OpenRad is a modern, responsive web application designed for radiologists and me
 ## 🧠 How It Works
 
 1. **Patient & Image Input**: The user uploads a medical image and fills out a clinical context form via the Next.js frontend.
-2. **AI Inference**: The app triggers an external webhook (e.g., an n8n automated workflow) and sends the image/patient data. The webhook communicates with an AI model (like Google Gemini or OpenAI) to analyze the image and draft a structured report.
+2. **AI integration **: using langGraph
 3. **Review & Edit**: The drafted report is returned to the app instantly. A medical professional reviews the findings, edits the content using the built-in rich text editor if necessary, and either Approves or Rejects the draft.
 4. **Export & Storage**: Once approved, the report can be exported to a beautifully structured PDF. A full copy (including the image pixel data) is seamlessly saved to the local SQLite database, and if configured, a lightweight text-only copy is synced remotely to the user's Supabase instance.
 
 ## 📖 How to Use
 
-1. **Configure Your Settings**: First, navigate to the **Settings** tab. Add your n8n Webhook URL (for the AI backend) and optionally your Supabase credentials for cloud syncing. You can also personalize your hospital branding and toggle dark/light mode here.
-   
-   so use this OpenRad n8n workflow  :[N8N workflow](https://drive.google.com/file/d/19g1QKiyQ4BaX-QcoRtYEeJP61GGEHqf_/view?usp=sharing)
+1. **Configure Your Settings**: First, navigate to the **Settings** tab. Add your api credential (for the AI backend) and optionally your Supabase credentials for cloud syncing. You can also personalize your hospital branding and toggle dark/light mode here.
+
 3. **Generate a Report**: Navigate to the **Dashboard**. Enter the patient's information (Name, Age, Gender), add the "Indication" for the scan, select the correct modality, and upload the image. Click "Generate Report".
 4. **Analyze**: Wait a few seconds for the AI to return the draft. Review the detected findings, impression, and recommendations.
 5. **Approve/Edit**: Read through the report. If anything needs adjusting, click the **Edit** button to make quick changes textually. Once satisfied, hit **Approve**.
@@ -83,7 +82,7 @@ You need Node.js installed on your local machine.
 ## 🔧 Configuration
 
 All configurations can be done directly from the app's **Settings UI**:
-- **n8n Webhook URL**: Insert the endpoint responsible for your medical AI-processing workflow.
+- **api ai model**: Insert the endpoint responsible for your medical AI-processing workflow.
 - **Supabase Credentials**: Enter your project URL and Anon Key to activate Cloud History and User Management features.
 - All configurations entered are securely saved locally to your SQLite database and not tracked by source control.
 
