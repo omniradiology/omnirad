@@ -49,3 +49,11 @@ data/
 sqlite.db
 *.db
 *.db-journal
+
+# Markdown plan files
+LangGraph-migration.md
+copilot-annaotation-plan.md
+radialogy_Copilot- Plan.md
+radialogy_Copilot- Plan-code.md
+hl7-fhir-integration-plan.md
+openrad-hipaa-gdpr-compliance-plan.md
