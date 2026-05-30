@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { ViewerAction, ViewerTab, ChatMessage, CopilotPatientContext, Reference } from "@/types/copilot";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { ViewerAction, ViewerTab, ChatMessage, CopilotPatientContext, Reference, ActivityState, INITIAL_ACTIVITY_STATE } from "@/types/copilot";
+import type { AIViewerAction, CopilotViewerRef, FindingSummary } from "@/types/copilot-viewer";
+import { executeViewerActions } from "@/lib/copilot/action-executor";
 import ViewerPanel from "./ViewerPanel";
 import CopilotPanel from "./CopilotPanel";
+import FindingsList from "./FindingsList";
 
 interface WorkspaceLayoutProps {
     initialPatientId?: string;
@@ -18,6 +21,12 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
     const [currentSlice, setCurrentSlice] = useState<number>(1);
     const [currentPatientId, setCurrentPatientId] = useState<string | null>(initialPatientId || null);
     const [currentPatientName, setCurrentPatientName] = useState<string | null>(null);
+
+    // ─── Cornerstone Viewer Ref ──────────────────────────────────────────────
+    const viewerRef = useRef<CopilotViewerRef | null>(null);
+
+    // ─── AI Findings State ───────────────────────────────────────────────────
+    const [aiFindings, setAiFindings] = useState<FindingSummary[]>([]);
 
     // ─── Chat State ──────────────────────────────────────────────────────────
     const [chatSessionId, setChatSessionId] = useState<string>(() => {
@@ -38,6 +47,7 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
     });
     
     const [isLoading, setIsLoading] = useState(false);
+    const [activityState, setActivityState] = useState<ActivityState>(INITIAL_ACTIVITY_STATE);
 
     // Persist chat state
     useEffect(() => {
@@ -47,8 +57,8 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
         }
     }, [chatSessionId, chatMessages]);
 
-    // ─── Core Bridge Function: AI → Viewer ───────────────────────────────────
-    const executeViewerAction = useCallback((action: ViewerAction) => {
+    // ─── Core Bridge Function: Legacy AI → Viewer ────────────────────────────
+    const executeLegacyViewerAction = useCallback((action: ViewerAction) => {
         if (!action) return;
 
         switch (action.type) {
@@ -78,9 +88,63 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
         }
     }, []);
 
+    // ─── New AI Viewer Actions Executor ──────────────────────────────────────
+    const executeAIViewerActions = useCallback(async (actions: AIViewerAction[]) => {
+        if (!actions || actions.length === 0) return;
+
+        // Switch to DICOM tab when we have annotation/segmentation actions
+        const hasVisualActions = actions.some(
+            (a) => a.type === "annotation" || a.type === "segmentation" || a.type === "navigate"
+        );
+        if (hasVisualActions) {
+            setActiveTab("dicom");
+        }
+
+        // Small delay to let the tab switch and viewer mount
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Execute through the action executor
+        await executeViewerActions(actions, viewerRef.current);
+    }, []);
+
     const handleReferenceClick = useCallback((ref: Reference) => {
-        executeViewerAction(ref.viewerAction);
-    }, [executeViewerAction]);
+        executeLegacyViewerAction(ref.viewerAction);
+    }, [executeLegacyViewerAction]);
+
+    // ─── Unified Action Executor ─────────────────────────────────────────────
+    const handleExecuteActions = useCallback(async (actions: any[]) => {
+        if (!actions || actions.length === 0) return;
+
+        const legacyActions: ViewerAction[] = [];
+        const aiActions: AIViewerAction[] = [];
+
+        for (const action of actions) {
+            if (action.type === "OPEN_REPORT" || action.type === "OPEN_DICOM" || 
+                action.type === "OPEN_METADATA" || action.type === "SWITCH_TAB" || 
+                action.type === "COMPARE_VIEW") {
+                legacyActions.push(action as ViewerAction);
+            } else if (action.type === "annotation" || action.type === "segmentation" || 
+                       action.type === "navigate" || action.type === "viewport" || 
+                       action.type === "clear") {
+                aiActions.push(action as AIViewerAction);
+            }
+        }
+
+        // Execute legacy actions first (e.g. mounting the right study)
+        for (const action of legacyActions) {
+            executeLegacyViewerAction(action);
+        }
+
+        // If there are visual overlay actions, clear old ones so they don't stack visually
+        if (aiActions.some(a => a.type === "annotation" || a.type === "segmentation")) {
+            viewerRef.current?.clearAIFindings();
+        }
+
+        // Execute new AI viewer actions
+        if (aiActions.length > 0) {
+            await executeAIViewerActions(aiActions);
+        }
+    }, [executeLegacyViewerAction, executeAIViewerActions]);
 
     // ─── Send Chat Message ───────────────────────────────────────────────────
     const sendMessage = useCallback(async (messageText: string) => {
@@ -95,6 +159,14 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
 
         setChatMessages(prev => [...prev, userMessage]);
         setIsLoading(true);
+        setActivityState({
+            isActive: true,
+            currentStatus: "thinking",
+            currentLabel: "Thinking...",
+            currentTool: null,
+            completedSteps: [],
+            startedAt: Date.now(),
+        });
 
         try {
             const response = await fetch("/api/copilot/chat", {
@@ -102,10 +174,18 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     message: messageText,
+                    stream: true,
                     patientContext: {
                         patientId: currentPatientId,
                         currentReportId: currentReportId,
                         patientName: currentPatientName,
+                        imageBase64: viewerRef.current?.getCurrentImageBase64?.() || undefined,
+                    },
+                    study_context: {
+                        reportId: currentReportId,
+                        currentSlice: currentSlice > 0 ? currentSlice - 1 : 0,
+                        totalSlices: viewerRef.current?.getTotalSlices?.() || 0,
+                        modality: null,
                     },
                     chatHistory: chatMessages.map(m => ({
                         role: m.role,
@@ -115,27 +195,100 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
                 }),
             });
 
-            const data = await response.json();
+            // Check if we got an SSE stream back
+            const contentType = response.headers.get("content-type") || "";
+            
+            if (contentType.includes("text/event-stream") && response.body) {
+                // ─── SSE Streaming Mode ──────────────────────────────────
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
 
-            if (data.sessionId) {
-                setChatSessionId(data.sessionId);
-            }
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-            const assistantMessage: ChatMessage = {
-                id: `msg_${Date.now()}_assistant`,
-                role: "assistant",
-                content: data.message || "No response received.",
-                viewerActions: data.viewerActions || [],
-                references: data.references || [],
-                timestamp: new Date().toISOString(),
-            };
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
 
-            setChatMessages(prev => [...prev, assistantMessage]);
+                    for (const line of lines) {
+                        if (!line.startsWith("data: ")) continue;
+                        try {
+                            const event = JSON.parse(line.slice(6));
 
-            // Execute viewer actions from the AI response
-            if (data.viewerActions && data.viewerActions.length > 0) {
-                for (const action of data.viewerActions) {
-                    executeViewerAction(action);
+                            if (event.type === "status") {
+                                setActivityState(prev => ({
+                                    ...prev,
+                                    currentStatus: event.status,
+                                    currentLabel: event.label,
+                                    currentTool: event.tool,
+                                    completedSteps: prev.currentLabel && prev.currentLabel !== event.label
+                                        ? [...prev.completedSteps, { label: prev.currentLabel, tool: prev.currentTool, timestamp: Date.now() }]
+                                        : prev.completedSteps,
+                                }));
+                            } else if (event.type === "complete") {
+                                if (event.sessionId) {
+                                    setChatSessionId(event.sessionId);
+                                }
+
+                                const assistantMessage: ChatMessage = {
+                                    id: `msg_${Date.now()}_assistant`,
+                                    role: "assistant",
+                                    content: event.message || "No response received.",
+                                    viewerActions: event.viewer_actions || [],
+                                    references: event.references || [],
+                                    timestamp: new Date().toISOString(),
+                                };
+
+                                setChatMessages(prev => [...prev, assistantMessage]);
+
+                                if (event.viewer_actions && event.viewer_actions.length > 0) {
+                                    await handleExecuteActions(event.viewer_actions);
+                                }
+
+                                if (event.findings_summary && event.findings_summary.length > 0) {
+                                    setAiFindings(prev => [...prev, ...event.findings_summary]);
+                                }
+                            } else if (event.type === "error") {
+                                const errorMessage: ChatMessage = {
+                                    id: `msg_${Date.now()}_error`,
+                                    role: "assistant",
+                                    content: event.message || "⚠️ An error occurred.",
+                                    timestamp: new Date().toISOString(),
+                                };
+                                setChatMessages(prev => [...prev, errorMessage]);
+                            }
+                        } catch {
+                            // Skip malformed JSON lines
+                        }
+                    }
+                }
+            } else {
+                // ─── Fallback: Non-Streaming JSON Mode ──────────────────
+                const data = await response.json();
+
+                if (data.sessionId) {
+                    setChatSessionId(data.sessionId);
+                }
+
+                const assistantMessage: ChatMessage = {
+                    id: `msg_${Date.now()}_assistant`,
+                    role: "assistant",
+                    content: data.message || "No response received.",
+                    viewerActions: data.viewerActions || [],
+                    references: data.references || [],
+                    timestamp: new Date().toISOString(),
+                };
+
+                setChatMessages(prev => [...prev, assistantMessage]);
+
+                if (data.viewerActions && data.viewerActions.length > 0) {
+                    await handleExecuteActions(data.viewerActions);
+                }
+
+                if (data.findingsSummary && data.findingsSummary.length > 0) {
+                    setAiFindings(prev => [...prev, ...data.findingsSummary]);
                 }
             }
         } catch (error) {
@@ -149,14 +302,22 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
             setChatMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
+            setActivityState(prev => ({ ...prev, isActive: false }));
         }
-    }, [isLoading, currentPatientId, currentReportId, currentPatientName, chatMessages, chatSessionId, executeViewerAction]);
+    }, [isLoading, currentPatientId, currentReportId, currentPatientName, currentSlice, chatMessages, chatSessionId, handleExecuteActions]);
+
+    // ─── Clear AI Findings ───────────────────────────────────────────────────
+    const clearAllFindings = useCallback(() => {
+        viewerRef.current?.clearAIFindings();
+        setAiFindings([]);
+    }, []);
 
     // ─── New Chat Session ────────────────────────────────────────────────────
     const startNewChat = useCallback(() => {
         setChatSessionId(`session_${Date.now()}`);
         setChatMessages([]);
-    }, []);
+        clearAllFindings();
+    }, [clearAllFindings]);
 
     // ─── Patient Context ─────────────────────────────────────────────────────
     const patientContext: CopilotPatientContext = {
@@ -174,8 +335,6 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
             if (Array.isArray(data)) {
                 setChatSessionId(sessionId);
                 setChatMessages(data);
-                // Future: We could auto-load the latest patient Context here,
-                // but for now, just viewing the chat is enough.
             }
         } catch (err) {
             console.error("[Copilot] Error loading session:", err);
@@ -209,6 +368,13 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
                     currentPatientId={currentPatientId}
                     onReportSelect={handleReportSelect}
                     onPatientContext={handlePatientContext}
+                    viewerRef={viewerRef}
+                />
+                {/* AI Findings List (below viewer when findings exist) */}
+                <FindingsList
+                    findings={aiFindings}
+                    viewerRef={viewerRef.current}
+                    onClearAll={clearAllFindings}
                 />
             </div>
 
@@ -217,11 +383,14 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
                 <CopilotPanel
                     messages={chatMessages}
                     isLoading={isLoading}
+                    activityState={activityState}
                     onSendMessage={sendMessage}
                     onReferenceClick={handleReferenceClick}
+                    onExecuteActions={handleExecuteActions}
                     onNewChat={startNewChat}
                     onLoadSession={loadSession}
                     patientContext={patientContext}
+                    findingsCount={aiFindings.length}
                 />
             </div>
         </div>

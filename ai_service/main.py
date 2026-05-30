@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import uvicorn
@@ -19,6 +20,20 @@ class CopilotChatRequest(BaseModel):
     chat_history: List[Dict[str, str]] = []
     patient_context: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
+    study_context: Optional[Dict[str, Any]] = None  # report_id, slice, modality etc.
+
+class CopilotAnnotateRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    patient_id: Optional[str] = None
+    report_id: Optional[str] = None
+    study_uid: Optional[str] = None
+    series_uid: Optional[str] = None
+    current_slice: Optional[int] = None
+    total_slices: Optional[int] = None
+    modality: Optional[str] = None
+    report_text: Optional[str] = None
+    viewport_image: Optional[str] = None
 
 class GenerateRequest(BaseModel):
     patient: Dict[str, Any]
@@ -55,6 +70,7 @@ async def copilot_chat(req: CopilotChatRequest):
             message=req.message,
             chat_history=req.chat_history,
             patient_context=req.patient_context,
+            study_context=req.study_context,
         )
         return result
     except Exception as e:
@@ -64,8 +80,89 @@ async def copilot_chat(req: CopilotChatRequest):
             "message": f"⚠️ Copilot error: {str(e)}",
             "viewer_actions": [],
             "references": [],
+            "findings_summary": [],
             "error": str(e),
         }
+
+@app.post("/copilot/chat/stream")
+async def copilot_chat_stream(req: CopilotChatRequest):
+    """SSE streaming endpoint for copilot chat with real-time activity updates."""
+    from agent.copilot_workflow import execute_copilot_chat_stream
+    
+    async def event_generator():
+        try:
+            async for event_json in execute_copilot_chat_stream(
+                message=req.message,
+                chat_history=req.chat_history,
+                patient_context=req.patient_context,
+                study_context=req.study_context,
+            ):
+                yield f"data: {event_json}\n\n"
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            import json
+            yield f"data: {json.dumps({'type': 'error', 'message': f'⚠️ Copilot stream error: {str(e)}'})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+@app.post("/copilot/annotate")
+async def copilot_annotate(req: CopilotAnnotateRequest):
+    """Dedicated endpoint for structured annotation/segmentation requests."""
+    from agent.copilot_workflow import execute_copilot_chat
+    
+    try:
+        study_context = {
+            "reportId": req.report_id,
+            "currentSlice": req.current_slice,
+            "totalSlices": req.total_slices,
+            "modality": req.modality,
+        }
+        patient_context = {
+            "patientId": req.patient_id,
+        }
+        
+        result = await execute_copilot_chat(
+            message=req.message,
+            chat_history=[],
+            patient_context=patient_context,
+            study_context=study_context,
+        )
+        
+        return {
+            "reply": result.get("message", ""),
+            "viewer_actions": result.get("viewer_actions", []),
+            "findings_summary": result.get("findings_summary", []),
+            "references": result.get("references", []),
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "reply": f"⚠️ Annotation error: {str(e)}",
+            "viewer_actions": [],
+            "findings_summary": [],
+            "error": str(e),
+        }
+
+@app.get("/segmentation/health")
+def segmentation_health():
+    """Check if the segmentation backend is reachable."""
+    try:
+        from models.medsam3_service import get_medsam3_service
+        service = get_medsam3_service()
+        result = service.health_check()
+        return result
+    except Exception as e:
+        return {"healthy": False, "error": str(e)}
 
 @app.post("/test_ai_connection")
 async def test_ai_connection(req: Dict[str, Any]):

@@ -1,41 +1,57 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { ChatMessage as ChatMessageType, Reference, CopilotPatientContext, QuickAction } from "@/types/copilot";
+import { ChatMessage as ChatMessageType, Reference, CopilotPatientContext, QuickAction, ActivityState } from "@/types/copilot";
 import ChatMessage from "./ChatMessage";
 import ChatHistoryPanel from "./ChatHistoryPanel";
+import ActivityIndicator from "./ActivityIndicator";
 import { Bot, Send, Plus, Trash2, Sparkles, FileText, GitCompare, Clock, Stethoscope } from "lucide-react";
 
 interface CopilotPanelProps {
     messages: ChatMessageType[];
     isLoading: boolean;
+    activityState: ActivityState;
     onSendMessage: (message: string) => void;
     onReferenceClick: (ref: Reference) => void;
+    onExecuteActions?: (actions: any[]) => void;
     onNewChat: () => void;
     onLoadSession: (sessionId: string) => void;
     patientContext: CopilotPatientContext;
+    findingsCount?: number;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
     { label: "Summarize history", prompt: "Summarize this patient's report history", icon: "📋" },
     { label: "Compare with previous", prompt: "Compare the current report with the previous one", icon: "🔄" },
-    { label: "Show latest report", prompt: "Show me the latest report for this patient", icon: "📄" },
-    { label: "Patient timeline", prompt: "Show me the timeline of all studies for this patient", icon: "⏱️" },
+    { label: "Highlight findings", prompt: "Highlight the findings from the report on the image", icon: "🎯" },
+    { label: "Where is the lesion?", prompt: "Where is the lesion in this image?", icon: "🔍" },
+    { label: "Point to abnormality", prompt: "Point to the abnormal area", icon: "👆" },
+    { label: "Show suspicious region", prompt: "Highlight the suspicious region", icon: "⚠️" },
+    { label: "Clear AI findings", prompt: "Clear all AI findings", icon: "🧹" },
 ];
 
 export default function CopilotPanel({
     messages,
     isLoading,
+    activityState,
     onSendMessage,
     onReferenceClick,
+    onExecuteActions,
     onNewChat,
     onLoadSession,
     patientContext,
+    findingsCount = 0,
 }: CopilotPanelProps) {
     const [inputValue, setInputValue] = useState("");
     const [showHistory, setShowHistory] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+
+    // Prevent hydration mismatch
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -81,7 +97,15 @@ export default function CopilotPanel({
                             <Bot size={18} className="text-white" />
                         </div>
                         <div>
+                        <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-text-heading">AI Copilot</h3>
+                            {findingsCount > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/15 px-2 py-0.5 rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                                    {findingsCount}
+                                </span>
+                            )}
+                        </div>
                             <p className="text-[11px] text-text-muted">
                                 {patientContext.patientName
                                     ? `Patient: ${patientContext.patientName}`
@@ -121,7 +145,9 @@ export default function CopilotPanel({
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-                {messages.length === 0 ? (
+                {!isMounted ? (
+                    <div className="flex-1 opacity-0" />
+                ) : messages.length === 0 ? (
                     <WelcomeMessage
                         onQuickAction={onSendMessage}
                         patientContext={patientContext}
@@ -133,23 +159,13 @@ export default function CopilotPanel({
                                 key={msg.id}
                                 message={msg}
                                 onReferenceClick={onReferenceClick}
+                                onExecuteActions={onExecuteActions}
                             />
                         ))}
 
-                        {/* Loading indicator */}
-                        {isLoading && (
-                            <div className="flex gap-3">
-                                <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
-                                    <Bot size={16} className="text-emerald-400" />
-                                </div>
-                                <div className="bg-bg-panel border border-border-card rounded-2xl rounded-bl-md px-4 py-3">
-                                    <div className="flex gap-1.5">
-                                        <span className="w-2 h-2 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: "0ms" }} />
-                                        <span className="w-2 h-2 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: "150ms" }} />
-                                        <span className="w-2 h-2 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: "300ms" }} />
-                                    </div>
-                                </div>
-                            </div>
+                        {/* Streaming Activity Indicator */}
+                        {(isLoading || activityState.isActive) && (
+                            <ActivityIndicator activityState={activityState} />
                         )}
                     </>
                 )}

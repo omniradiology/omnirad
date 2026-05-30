@@ -61,3 +61,45 @@ export interface QuickAction {
     prompt: string;
     icon: string;
 }
+
+// ─── Activity Indicator Types ────────────────────────────────────────────────
+
+export interface ActivityStep {
+    label: string;
+    tool: string | null;
+    timestamp: number;
+}
+
+export interface ActivityState {
+    isActive: boolean;
+    currentStatus: string;
+    currentLabel: string;
+    currentTool: string | null;
+    completedSteps: ActivityStep[];
+    startedAt: number;
+}
+
+export const INITIAL_ACTIVITY_STATE: ActivityState = {
+    isActive: false,
+    currentStatus: "",
+    currentLabel: "",
+    currentTool: null,
+    completedSteps: [],
+    startedAt: 0,
+};
+
+// Re-export copilot viewer types for convenient access
+export type {
+    AIViewerAction,
+    NavigateAction,
+    AnnotationAction,
+    SegmentationAction,
+    ViewportAction as ViewportAIAction,
+    ClearAction,
+    AnnotationMetadata,
+    FindingSummary,
+    CopilotAnnotateRequest,
+    CopilotAnnotateResponse,
+    SegmentationConfig,
+    CopilotViewerRef,
+} from "./copilot-viewer";
