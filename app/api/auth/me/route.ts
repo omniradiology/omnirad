@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 
 async function getCurrentUser() {
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get('openrad_session_id')?.value;
+    const sessionId = cookieStore.get('omnirad_session_id')?.value;
     if (!sessionId) return null;
 
     const sessionList = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);

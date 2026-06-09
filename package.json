@@ -1,5 +1,5 @@
 {
-  "name": "open-rad",
+  "name": "omni-rad",
   "version": "0.1.0",
   "scripts": {
     "dev": "concurrently -k -n \"NEXT,AI\" -c \"cyan,magenta\" \"npm run dev:next\" \"npm run dev:ai\"",

@@ -138,7 +138,7 @@ async def execute_report_generation(req: Any) -> Dict[str, Any]:
 
     report = {
         "report_header": {
-            "hospital_name": header.get("hospital_name", "OpenRad Hospital"),
+            "hospital_name": header.get("hospital_name", "OmniRad Hospital"),
             "department": header.get("department", "Radiology Department"),
             "report_title": "Radiology Report",
             "report_id": report_id,
@@ -164,7 +164,7 @@ async def execute_report_generation(req: Any) -> Dict[str, Any]:
         "urgency": urgency,
         "recommendations": ai_output.get("recommendations", []),
         "report_footer": {
-            "prepared_by": "OpenRad AI (LangGraph Engine)",
+            "prepared_by": "OmniRad AI",
             "department": header.get("department", "Radiology Department"),
             "report_status": "Pending",
         },

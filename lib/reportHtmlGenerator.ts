@@ -11,19 +11,19 @@ import { ReportData } from "@/types";
  * - Uses tables/flexbox with inline styles for layouts
  */
 
-export function generateReportHtml(report: ReportData, template: 'standard' | 'modern' | 'minimal' = 'standard'): string {
+export function generateReportHtml(report: ReportData, template: 'standard' | 'modern' | 'minimal' = 'standard', logoUrl?: string): string {
     switch (template) {
         case 'modern':
-            return generateModernHtml(report);
+            return generateModernHtml(report, logoUrl);
         case 'minimal':
-            return generateMinimalHtml(report);
+            return generateMinimalHtml(report, logoUrl);
         case 'standard':
         default:
-            return generateStandardHtml(report);
+            return generateStandardHtml(report, logoUrl);
     }
 }
 
-function generateStandardHtml(report: ReportData): string {
+function generateStandardHtml(report: ReportData, logoUrl?: string): string {
     const formattedDate = new Date(report.report_header.report_date).toLocaleString();
 
     // Urgency color
@@ -153,6 +153,11 @@ function generateStandardHtml(report: ReportData): string {
             <div style="padding: 24px 28px 16px 28px; border-bottom: 2px solid #1f2937;">
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
+                        ${logoUrl ? `
+                        <td style="vertical-align: top; padding-right: 12px; width: 60px;">
+                            <img src="${logoUrl}" alt="Hospital Logo" style="height: 50px; width: auto; object-fit: contain;" />
+                        </td>
+                        ` : ''}
                         <td style="vertical-align: top;">
                             <h1 style="font-size: 22px; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; color: #111827; text-transform: uppercase; margin: 0 0 2px 0; letter-spacing: -0.3px;">
                                 ${report.report_header.hospital_name}
@@ -277,7 +282,7 @@ function generateStandardHtml(report: ReportData): string {
     `;
 }
 
-function generateModernHtml(report: ReportData): string {
+function generateModernHtml(report: ReportData, logoUrl?: string): string {
     const formattedDate = new Date(report.report_header.report_date).toLocaleString();
     const genderDisplay = report.patient.gender === 'M' ? 'Male' : report.patient.gender === 'F' ? 'Female' : report.patient.gender;
 
@@ -354,11 +359,16 @@ function generateModernHtml(report: ReportData): string {
         <div style="background-color: #0f172a; color: white; padding: 24px 32px;">
             <table style="width: 100%;">
                 <tr>
-                    <td>
+                    ${logoUrl ? `
+                    <td style="width: 60px; vertical-align: middle; padding-right: 16px;">
+                        <img src="${logoUrl}" alt="Hospital Logo" style="height: 48px; width: auto; object-fit: contain; filter: brightness(0) invert(1);" />
+                    </td>
+                    ` : ''}
+                    <td style="vertical-align: middle;">
                         <h1 style="margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">${report.report_header.hospital_name}</h1>
                         <p style="margin: 4px 0 0 0; color: #94a3b8; font-weight: 500;">${report.report_header.department}</p>
                     </td>
-                    <td style="text-align: right;">
+                    <td style="text-align: right; vertical-align: top;">
                         <div style="display: inline-block; background: #1e293b; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 4px;">
                             ID: ${report.report_header.report_id}
                         </div>
@@ -443,7 +453,7 @@ function generateModernHtml(report: ReportData): string {
     </div>`;
 }
 
-function generateMinimalHtml(report: ReportData): string {
+function generateMinimalHtml(report: ReportData, logoUrl?: string): string {
     const formattedDate = new Date(report.report_header.report_date).toLocaleString();
 
     // Helper for rows
@@ -488,9 +498,12 @@ function generateMinimalHtml(report: ReportData): string {
     <div style="max-width: 210mm; margin: 0 auto; background: #fff; font-family: sans-serif; font-size: 11px; color: #000; padding: 30px;">
         <!-- Header -->
         <div style="border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div>
-                <h1 style="margin: 0; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: -0.5px;">${report.report_header.hospital_name}</h1>
-                <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">${report.report_header.department}</p>
+            <div style="display: flex; align-items: center;">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Hospital Logo" style="height: 32px; width: auto; object-fit: contain; margin-right: 12px;" />` : ''}
+                <div>
+                    <h1 style="margin: 0; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: -0.5px;">${report.report_header.hospital_name}</h1>
+                    <p style="margin: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">${report.report_header.department}</p>
+                </div>
             </div>
             <div style="text-align: right; font-family: monospace; font-size: 10px;">
                 ${report.report_header.report_id} <br/> ${formattedDate}

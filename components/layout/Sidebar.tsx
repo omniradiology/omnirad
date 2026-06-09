@@ -14,7 +14,7 @@ export function Sidebar() {
       <div className="mb-8 relative w-16 h-16">
         <Image
           src="/logo.svg"
-          alt="OpenRad Logo"
+          alt="OmniRad Logo"
           fill
           className="object-contain"
           priority

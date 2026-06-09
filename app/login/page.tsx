@@ -75,10 +75,10 @@ function LoginForm() {
     <div className="w-full max-w-md bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
       <div className="p-8">
         <div className="flex justify-center mb-6">
-            <Image src="/logo.svg" alt="OpenRad Logo" width={140} height={140} priority className="object-contain" />
+            <Image src="/logo.svg" alt="OmniRad Logo" width={140} height={140} priority className="object-contain" />
         </div>
         <h1 className="text-2xl font-bold text-center text-text-primary mb-2 mt-4">
-          OpenRad Login
+          OmniRad Login
         </h1>
         <p className="text-center text-text-secondary mb-8 text-sm">
           Please sign in to access your radiology reports.

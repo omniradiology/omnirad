@@ -10,24 +10,24 @@ if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, "openrad.db");
+const dbPath = path.join(dataDir, "omnirad.db");
 
 // Singleton pattern - reuse connection across hot reloads in dev
 const globalForDb = globalThis as unknown as {
-    __openradDb: ReturnType<typeof drizzle> | undefined;
-    __openradSqlite: Database.Database | undefined;
+    __omniradDb: ReturnType<typeof drizzle> | undefined;
+    __omniradSqlite: Database.Database | undefined;
 };
 
-if (!globalForDb.__openradSqlite) {
-    globalForDb.__openradSqlite = new Database(dbPath);
-    globalForDb.__openradSqlite.pragma("journal_mode = WAL");
-    globalForDb.__openradSqlite.pragma("foreign_keys = ON");
-    globalForDb.__openradSqlite.pragma("busy_timeout = 5000"); // 5 seconds to wait for lock
+if (!globalForDb.__omniradSqlite) {
+    globalForDb.__omniradSqlite = new Database(dbPath);
+    globalForDb.__omniradSqlite.pragma("journal_mode = WAL");
+    globalForDb.__omniradSqlite.pragma("foreign_keys = ON");
+    globalForDb.__omniradSqlite.pragma("busy_timeout = 5000"); // 5 seconds to wait for lock
 
     // Auto-create tables if they don't exist
     // Wrap in try/catch to avoid build-time crashes if another worker is creating them
     try {
-        globalForDb.__openradSqlite.exec(`
+        globalForDb.__omniradSqlite.exec(`
         CREATE TABLE IF NOT EXISTS patients (
             id TEXT PRIMARY KEY,
             patient_id_number TEXT,
@@ -111,6 +111,26 @@ if (!globalForDb.__openradSqlite) {
             updated_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS segmentation_configurations (
+            id TEXT PRIMARY KEY,
+            deployment_mode TEXT,
+            provider_name TEXT,
+            model_name TEXT,
+            model_type TEXT DEFAULT 'medsam3',
+            base_url TEXT,
+            health_endpoint TEXT,
+            predict_endpoint TEXT,
+            api_secret_key TEXT,
+            timeout_seconds INTEGER,
+            supports_contours INTEGER,
+            supports_3d INTEGER,
+            returns_mask INTEGER,
+            returns_box INTEGER,
+            is_active INTEGER,
+            created_at TEXT,
+            updated_at TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS prompt_templates (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -150,58 +170,58 @@ if (!globalForDb.__openradSqlite) {
         // ─── Migrations for existing databases ──────────────────────────────
         // Add patient_id column to reports if it doesn't already exist
         try {
-            const cols = globalForDb.__openradSqlite!.pragma('table_info(reports)') as any[];
+            const cols = globalForDb.__omniradSqlite!.pragma('table_info(reports)') as any[];
             const hasPatientId = cols.some((c: any) => c.name === 'patient_id');
             if (!hasPatientId) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE reports ADD COLUMN patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE;`);
-                console.log('[OpenRad Db] Migrated: Added patient_id column to reports table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE reports ADD COLUMN patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE;`);
+                console.log('[OmniRad Db] Migrated: Added patient_id column to reports table.');
             }
         } catch (migErr) {
-            console.warn('[OpenRad Db] Migration check for patient_id skipped:', migErr);
+            console.warn('[OmniRad Db] Migration check for patient_id skipped:', migErr);
         }
 
         // Add age column to patients if it doesn't already exist
         try {
-            const cols = globalForDb.__openradSqlite!.pragma('table_info(patients)') as any[];
+            const cols = globalForDb.__omniradSqlite!.pragma('table_info(patients)') as any[];
             const hasAge = cols.some((c: any) => c.name === 'age');
             if (!hasAge) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE patients ADD COLUMN age INTEGER;`);
-                console.log('[OpenRad Db] Migrated: Added age column to patients table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE patients ADD COLUMN age INTEGER;`);
+                console.log('[OmniRad Db] Migrated: Added age column to patients table.');
             }
         } catch (migErr) {
-            console.warn('[OpenRad Db] Migration check for patients age skipped:', migErr);
+            console.warn('[OmniRad Db] Migration check for patients age skipped:', migErr);
         }
 
         // Add mobile and address columns to patients if they don't already exist
         try {
-            const cols = globalForDb.__openradSqlite!.pragma('table_info(patients)') as any[];
+            const cols = globalForDb.__omniradSqlite!.pragma('table_info(patients)') as any[];
             if (!cols.some((c: any) => c.name === 'mobile')) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE patients ADD COLUMN mobile TEXT;`);
-                console.log('[OpenRad Db] Migrated: Added mobile column to patients table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE patients ADD COLUMN mobile TEXT;`);
+                console.log('[OmniRad Db] Migrated: Added mobile column to patients table.');
             }
             if (!cols.some((c: any) => c.name === 'address')) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE patients ADD COLUMN address TEXT;`);
-                console.log('[OpenRad Db] Migrated: Added address column to patients table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE patients ADD COLUMN address TEXT;`);
+                console.log('[OmniRad Db] Migrated: Added address column to patients table.');
             }
         } catch (migErr) {
-            console.warn('[OpenRad Db] Migration check for patients mobile/address skipped:', migErr);
+            console.warn('[OmniRad Db] Migration check for patients mobile/address skipped:', migErr);
         }
 
         // Also ensure position column exists on users (from a prior migration)
         try {
-            const userCols = globalForDb.__openradSqlite!.pragma('table_info(users)') as any[];
+            const userCols = globalForDb.__omniradSqlite!.pragma('table_info(users)') as any[];
             const hasPosition = userCols.some((c: any) => c.name === 'position');
             if (!hasPosition) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE users ADD COLUMN position TEXT DEFAULT '';`);
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE users ADD COLUMN position TEXT DEFAULT '';`);
             }
         } catch (migErr) { /* ignore */ }
 
         // Ensure PACS columns exist on reports (from a prior migration)
         try {
-            const repCols = globalForDb.__openradSqlite!.pragma('table_info(reports)') as any[];
+            const repCols = globalForDb.__omniradSqlite!.pragma('table_info(reports)') as any[];
             const hasPacsStudy = repCols.some((c: any) => c.name === 'pacs_study_uid');
             if (!hasPacsStudy) {
-                globalForDb.__openradSqlite!.exec(`
+                globalForDb.__omniradSqlite!.exec(`
                     ALTER TABLE reports ADD COLUMN pacs_study_uid TEXT;
                     ALTER TABLE reports ADD COLUMN pacs_series_uid TEXT;
                     ALTER TABLE reports ADD COLUMN pacs_source TEXT;
@@ -211,35 +231,35 @@ if (!globalForDb.__openradSqlite) {
 
         // Add purpose, langsmith_api_key, langsmith_project columns to ai_configurations
         try {
-            const aiCols = globalForDb.__openradSqlite!.pragma('table_info(ai_configurations)') as any[];
+            const aiCols = globalForDb.__omniradSqlite!.pragma('table_info(ai_configurations)') as any[];
             if (!aiCols.some((c: any) => c.name === 'purpose')) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN purpose TEXT DEFAULT 'report_generation';`);
-                console.log('[OpenRad Db] Migrated: Added purpose column to ai_configurations table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN purpose TEXT DEFAULT 'report_generation';`);
+                console.log('[OmniRad Db] Migrated: Added purpose column to ai_configurations table.');
             }
             if (!aiCols.some((c: any) => c.name === 'langsmith_api_key')) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_api_key TEXT;`);
-                console.log('[OpenRad Db] Migrated: Added langsmith_api_key column to ai_configurations table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_api_key TEXT;`);
+                console.log('[OmniRad Db] Migrated: Added langsmith_api_key column to ai_configurations table.');
             }
             if (!aiCols.some((c: any) => c.name === 'langsmith_project')) {
-                globalForDb.__openradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_project TEXT;`);
-                console.log('[OpenRad Db] Migrated: Added langsmith_project column to ai_configurations table.');
+                globalForDb.__omniradSqlite!.exec(`ALTER TABLE ai_configurations ADD COLUMN langsmith_project TEXT;`);
+                console.log('[OmniRad Db] Migrated: Added langsmith_project column to ai_configurations table.');
             }
         } catch (migErr) {
-            console.warn('[OpenRad Db] Migration check for ai_configurations copilot columns skipped:', migErr);
+            console.warn('[OmniRad Db] Migration check for ai_configurations copilot columns skipped:', migErr);
         }
 
     } catch (e: any) {
         if (e.code === 'SQLITE_BUSY') {
-            console.warn('[OpenRad Db] SQLite is busy during auto-creation (another worker might be creating tables). Ignoring.');
+            console.warn('[OmniRad Db] SQLite is busy during auto-creation (another worker might be creating tables). Ignoring.');
         } else {
-            console.error('[OpenRad Db] Error auto-creating tables:', e);
+            console.error('[OmniRad Db] Error auto-creating tables:', e);
         }
     }
 }
 
-if (!globalForDb.__openradDb) {
-    globalForDb.__openradDb = drizzle(globalForDb.__openradSqlite!, { schema });
+if (!globalForDb.__omniradDb) {
+    globalForDb.__omniradDb = drizzle(globalForDb.__omniradSqlite!, { schema });
 }
 
-export const db = globalForDb.__openradDb;
-export const sqlite = globalForDb.__openradSqlite!;
+export const db = globalForDb.__omniradDb;
+export const sqlite = globalForDb.__omniradSqlite!;

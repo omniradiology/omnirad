@@ -7,7 +7,7 @@ async function fetchSettings(type: string) {
         const res = await fetch(`/api/settings?type=${type}`);
         if (res.ok) return await res.json();
     } catch (e) {
-        console.warn(`[OpenRad] Could not fetch settings/${type}:`, e);
+        console.warn(`[OmniRad] Could not fetch settings/${type}:`, e);
     }
     return null;
 }
@@ -15,8 +15,8 @@ async function fetchSettings(type: string) {
 // ─── Generate Report ─────────────────────────────────────────────────────────
 export async function generateReport(data: PatientContext, dicomBase64?: string | null, dicomSlices?: string[]): Promise<ReportData[]> {
     // 1. Send to local Python FastAPI Microservice
-    let webhookUrl: string = "http://localhost:8000/generate_report";
-    console.log("[OpenRad] Using backend Python microservice at:", webhookUrl);
+    let webhookUrl: string = "http://localhost:8001/generate_report";
+    console.log("[OmniRad] Using backend Python microservice at:", webhookUrl);
 
 
     try {
@@ -61,7 +61,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
                     imagesBase64.push(b64);
                 }
             } catch (e) {
-                console.error("[OpenRad] Error fetching PACS image:", e);
+                console.error("[OmniRad] Error fetching PACS image:", e);
             }
         } else if (data.isDicom && dicomSlices && dicomSlices.length > 0) {
             // Multi-slice DICOM: send each captured slice as a separate binary image
@@ -73,7 +73,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
                 imagesBase64.push(dicomSlices[i]);
                 if (i === 0) imageBase64 = dicomSlices[i];
             }
-            console.log(`[OpenRad] Sending ${dicomSlices.length} DICOM slices to webhook`);
+            console.log(`[OmniRad] Sending ${dicomSlices.length} DICOM slices to webhook`);
         } else if (data.isDicom && dicomBase64) {
             // Single-frame DICOM fallback
             const response = await fetch(dicomBase64);
@@ -103,16 +103,16 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
             const configRes = await fetch('/api/ai-config?mode=active_internal');
             if (configRes.ok) {
                 aiConfig = await configRes.json();
-                console.log("[OpenRad] Loaded active AI config:", aiConfig.providerName, aiConfig.modelName);
+                console.log("[OmniRad] Loaded active AI config:", aiConfig.providerName, aiConfig.modelName);
             } else {
-                console.warn("[OpenRad] No active AI configuration found. The Python backend may fail.");
+                console.warn("[OmniRad] No active AI configuration found. The Python backend may fail.");
             }
         } catch (e) {
-            console.warn("[OpenRad] Could not fetch AI config:", e);
+            console.warn("[OmniRad] Could not fetch AI config:", e);
         }
 
         // Load profile info for report header
-        let hospitalName = 'OpenRad Hospital';
+        let hospitalName = 'OmniRad Hospital';
         let department = 'Radiology';
         try {
             const profileData = await fetchSettings("profile");
@@ -156,7 +156,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
             } : null
         };
 
-        console.log("[OpenRad] Sending request to Python Backend:", webhookUrl);
+        console.log("[OmniRad] Sending request to Python Backend:", webhookUrl);
 
         const response = await fetch(webhookUrl, {
             method: "POST",
@@ -166,16 +166,16 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
             body: JSON.stringify(payload),
         });
 
-        console.log("[OpenRad] Backend response status:", response.status, response.statusText);
+        console.log("[OmniRad] Backend response status:", response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Could not read error body');
-            console.error("[OpenRad] Backend error response body:", errorText);
+            console.error("[OmniRad] Backend error response body:", errorText);
             throw new Error(`API call failed: ${response.status} ${response.statusText}`);
         }
 
         const rawResponse = await response.json();
-        console.log("[OpenRad] Backend raw response:", rawResponse);
+        console.log("[OmniRad] Backend raw response:", rawResponse);
 
         // Check if the Python backend returned an error
         if (rawResponse.failed || rawResponse.error) {
@@ -194,14 +194,14 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
             } else if (rawResponse.report_header || rawResponse.patient || rawResponse.findings) {
                 reports = [rawResponse as ReportData];
             } else {
-                console.warn("[OpenRad] Unexpected response format:", rawResponse);
+                console.warn("[OmniRad] Unexpected response format:", rawResponse);
                 reports = [rawResponse as ReportData];
             }
         } else {
             throw new Error('Invalid response format from webhook');
         }
 
-        console.log("[OpenRad] Parsed reports count:", reports.length);
+        console.log("[OmniRad] Parsed reports count:", reports.length);
 
         const normalizeStatus = (status: string | undefined): ReportStatus => {
             if (!status) return 'Pending';
@@ -213,7 +213,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
         };
 
         // Load profile info for report footer defaults
-        let defaultPreparedBy = 'OpenRad AI';
+        let defaultPreparedBy = 'OmniRad AI';
         let defaultDepartment = 'Radiology';
         let defaultHospitalName = 'Hospital';
         try {
@@ -286,7 +286,7 @@ export async function generateReport(data: PatientContext, dicomBase64?: string 
 
         return reports;
     } catch (error) {
-        console.error("[OpenRad] Report generation error:", error);
+        console.error("[OmniRad] Report generation error:", error);
         throw error;
     }
 }
@@ -558,10 +558,10 @@ export async function updateReportStatus(
         });
         localSuccess = res.ok;
         if (res.ok) {
-            console.log("[OpenRad] SQLite report status updated:", status);
+            console.log("[OmniRad] SQLite report status updated:", status);
         }
     } catch (err) {
-        console.error("[OpenRad] Error updating SQLite status:", err);
+        console.error("[OmniRad] Error updating SQLite status:", err);
     }
 
     // 2. Update Supabase (if configured)
@@ -574,7 +574,7 @@ export async function updateReportStatus(
         let updatedData: any = null;
 
         if (!supabaseRowId) {
-            console.log("[OpenRad] Looking up Supabase row by report_id:", id);
+            console.log("[OmniRad] Looking up Supabase row by report_id:", id);
             const { data: found, error: lookupError } = await supabase
                 .from('reports')
                 .select('id, report_data')
@@ -585,9 +585,9 @@ export async function updateReportStatus(
             if (!lookupError && found) {
                 supabaseRowId = found.id;
                 updatedData = { ...found.report_data };
-                console.log("[OpenRad] Found Supabase row UUID:", supabaseRowId);
+                console.log("[OmniRad] Found Supabase row UUID:", supabaseRowId);
             } else {
-                console.warn("[OpenRad] Could not find Supabase row for report_id:", id);
+                console.warn("[OmniRad] Could not find Supabase row for report_id:", id);
             }
         } else {
             const { data: current } = await supabase
@@ -640,19 +640,19 @@ export async function updateReportStatus(
                 .eq('id', supabaseRowId);
 
             if (err1) {
-                console.warn("[OpenRad] Supabase update with report_status failed:", err1.message);
+                console.warn("[OmniRad] Supabase update with report_status failed:", err1.message);
                 // Fallback without the column
                 const { error: err2 } = await supabase
                     .from('reports')
                     .update({ report_data: updatedData })
                     .eq('id', supabaseRowId);
                 if (err2) {
-                    console.error("[OpenRad] Supabase fallback update also failed:", err2.message);
+                    console.error("[OmniRad] Supabase fallback update also failed:", err2.message);
                 } else {
-                    console.log("[OpenRad] Fallback update succeeded (report_status column may be missing).");
+                    console.log("[OmniRad] Fallback update succeeded (report_status column may be missing).");
                 }
             } else {
-                console.log("[OpenRad] Supabase report status updated successfully:", status);
+                console.log("[OmniRad] Supabase report status updated successfully:", status);
             }
         }
     }

@@ -1,5 +1,5 @@
 """
-OpenRad AI Copilot — LangChain Tools
+OmniRad AI Copilot — LangChain Tools
 
 SQLite query tools and viewer action tools for the radiology copilot agent.
 These tools allow the AI to query patient data and control the viewer panel.
@@ -13,10 +13,10 @@ from langchain_core.tools import tool
 
 
 def _get_db_path() -> str:
-    """Get the path to the OpenRad SQLite database."""
+    """Get the path to the OmniRad SQLite database."""
     # The database is in the project root's data/ directory
     base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(base, "data", "openrad.db")
+    return os.path.join(base, "data", "omnirad.db")
 
 
 def _query_db(sql: str, params: tuple = ()) -> list[dict]:
@@ -305,4 +305,6 @@ ALL_VIEWER_TOOLS = [
     open_metadata_in_viewer,
 ]
 
-ALL_TOOLS = ALL_DATA_TOOLS + ALL_VIEWER_TOOLS
+from agent.segmentation_tools import ALL_SEGMENTATION_TOOLS
+
+ALL_TOOLS = ALL_DATA_TOOLS + ALL_VIEWER_TOOLS + ALL_SEGMENTATION_TOOLS

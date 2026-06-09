@@ -86,7 +86,7 @@ export function AIConfigPanel() {
             const payload = {
                 ai_config: { providerType: type, apiEndpointUrl: url, apiSecretKey: key }
             }
-            const res = await fetch("http://localhost:8000/test_ai_connection", { 
+            const res = await fetch("http://localhost:8001/test_ai_connection", { 
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -152,7 +152,7 @@ export function AIConfigPanel() {
             <CardHeader>
                 <CardTitle className="text-text-heading flex items-center gap-2">
                     <BrainCircuit size={20} className="text-indigo-500" />
-                    AI LangGraph Engine Configuration
+                    AI Service Configuration
                 </CardTitle>
                 <p className="text-sm text-text-secondary">Configure your AI Provider and select a model for report generation</p>
             </CardHeader>

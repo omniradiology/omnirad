@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 export async function POST(req: Request) {
     try {
         const cookieStore = await cookies();
-        const sessionId = cookieStore.get('openrad_session_id')?.value;
+        const sessionId = cookieStore.get('omnirad_session_id')?.value;
 
         if (sessionId) {
             // Remove session from DB
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
         }
 
         // Clear the cookie
-        cookieStore.delete('openrad_session_id');
+        cookieStore.delete('omnirad_session_id');
 
         return NextResponse.json({ success: true });
     } catch (e: any) {

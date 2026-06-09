@@ -16,8 +16,8 @@ export async function DELETE() {
 
         // Clear all auth cookies
         const cookieStore = await cookies();
-        cookieStore.delete('openrad_session_id');
-        cookieStore.delete('openrad_setup_complete');
+        cookieStore.delete('omnirad_session_id');
+        cookieStore.delete('omnirad_setup_complete');
 
         return NextResponse.json({ success: true });
     } catch (error) {

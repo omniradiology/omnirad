@@ -27,6 +27,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     { label: "Where is the lesion?", prompt: "Where is the lesion in this image?", icon: "🔍" },
     { label: "Point to abnormality", prompt: "Point to the abnormal area", icon: "👆" },
     { label: "Show suspicious region", prompt: "Highlight the suspicious region", icon: "⚠️" },
+    { label: "Overlay segmentation", prompt: "Make an overlay segmentation for it.", icon: "🎨" },
     { label: "Clear AI findings", prompt: "Clear all AI findings", icon: "🧹" },
 ];
 
@@ -240,7 +241,7 @@ function WelcomeMessage({
             </div>
 
             <h3 className="text-xl font-bold text-text-heading mb-2">
-                OpenRad AI Copilot
+                OmniRad AI Copilot
             </h3>
             <p className="text-sm text-text-muted mb-8 max-w-sm">
                 I can help you navigate patient reports, compare studies, summarize findings, and more.

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
         // 5. Set session cookie and setup complete cookie
         const cookieStore = await cookies();
-        cookieStore.set('openrad_session_id', sessionId, {
+        cookieStore.set('omnirad_session_id', sessionId, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
             maxAge: 60 * 60 * 24 * 7 // 7 days
         });
         
-        cookieStore.set('openrad_setup_complete', 'true', {
+        cookieStore.set('omnirad_setup_complete', 'true', {
             path: '/',
             maxAge: 60 * 60 * 24 * 365 * 10 // 10 years
         });

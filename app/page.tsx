@@ -39,7 +39,7 @@ export default function Home() {
                   // Multi-slice study: capture ALL slices
                   dicomSlices = await dicomRef.current.captureMultipleFrames(totalFrames);
                   dicomBase64 = dicomSlices[0] || null;
-                  console.log(`[OpenRad] Captured all ${dicomSlices.length} slices from ${totalFrames} total frames`);
+                  console.log(`[OmniRad] Captured all ${dicomSlices.length} slices from ${totalFrames} total frames`);
               } else {
                   // Single frame
                   dicomBase64 = await dicomRef.current.captureFrame();
@@ -75,7 +75,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to generate report", error);
       const errMsg = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to generate report: ${errMsg}. Please check your Python LangGraph Engine and try again.`);
+      alert(`Failed to generate report: ${errMsg}. Please check your Python AI Service and try again.`);
     } finally {
       setIsGenerating(false);
     }

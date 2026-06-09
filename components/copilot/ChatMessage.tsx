@@ -2,7 +2,7 @@
 
 import { ChatMessage as ChatMessageType, Reference } from "@/types/copilot";
 import ClickableReference from "./ClickableReference";
-import { Bot, User, Eye } from "lucide-react";
+import { Bot, User, Eye, Scan, FileText, ClipboardList, ZoomIn, Sparkles, Layers } from "lucide-react";
 
 import React from "react";
 
@@ -85,15 +85,99 @@ function SimpleMarkdown({ content }: { content: string }) {
     return <div className="markdown-body">{elements}</div>;
 }
 
+// ── Determine label + style for a single replay button ───────────────────────
+function getActionButtonStyle(actions: any[]): {
+    label: string;
+    icon: React.ReactNode;
+    bgClass: string;
+    textClass: string;
+    borderClass: string;
+    hoverClass: string;
+} | null {
+    if (!actions || actions.length === 0) return null;
+
+    const hasFindings = actions.some(
+        (a) => a?.type === "annotation" || a?.type === "segmentation"
+    );
+    const hasReport = actions.some((a) => a?.type === "OPEN_REPORT");
+    const hasMetadata = actions.some((a) => a?.type === "OPEN_METADATA");
+    const hasViewport = actions.some((a) => a?.type === "viewport");
+    const hasClear = actions.some((a) => a?.type === "clear");
+
+    if (hasFindings) {
+        return {
+            label: "View AI Findings",
+            icon: <Sparkles size={13} />,
+            bgClass: "bg-emerald-500/10",
+            textClass: "text-emerald-400",
+            borderClass: "border-emerald-500/25",
+            hoverClass: "hover:bg-emerald-500/20 hover:border-emerald-500/40",
+        };
+    }
+    if (hasViewport) {
+        return {
+            label: "Zoom to Region",
+            icon: <ZoomIn size={13} />,
+            bgClass: "bg-rose-500/10",
+            textClass: "text-rose-400",
+            borderClass: "border-rose-500/25",
+            hoverClass: "hover:bg-rose-500/20 hover:border-rose-500/40",
+        };
+    }
+    if (hasReport) {
+        return {
+            label: "View Report",
+            icon: <FileText size={13} />,
+            bgClass: "bg-violet-500/10",
+            textClass: "text-violet-400",
+            borderClass: "border-violet-500/25",
+            hoverClass: "hover:bg-violet-500/20 hover:border-violet-500/40",
+        };
+    }
+    if (hasMetadata) {
+        return {
+            label: "View Patient Info",
+            icon: <ClipboardList size={13} />,
+            bgClass: "bg-amber-500/10",
+            textClass: "text-amber-400",
+            borderClass: "border-amber-500/25",
+            hoverClass: "hover:bg-amber-500/20 hover:border-amber-500/40",
+        };
+    }
+    if (hasClear) {
+        return {
+            label: "Clear Findings",
+            icon: <Layers size={13} />,
+            bgClass: "bg-slate-500/10",
+            textClass: "text-slate-400",
+            borderClass: "border-slate-500/25",
+            hoverClass: "hover:bg-slate-500/20 hover:border-slate-500/40",
+        };
+    }
+
+    // Default for OPEN_DICOM / navigate / other
+    return {
+        label: "Open in Viewer",
+        icon: <Scan size={13} />,
+        bgClass: "bg-sky-500/10",
+        textClass: "text-sky-400",
+        borderClass: "border-sky-500/25",
+        hoverClass: "hover:bg-sky-500/20 hover:border-sky-500/40",
+    };
+}
+
 interface ChatMessageProps {
     message: ChatMessageType;
     onReferenceClick: (ref: Reference) => void;
+    onExecuteActions?: (actions: any[]) => void;
 }
 
-export default function ChatMessage({ message, onReferenceClick }: ChatMessageProps) {
+export default function ChatMessage({ message, onReferenceClick, onExecuteActions }: ChatMessageProps) {
     const isUser = message.role === "user";
     const hasViewerActions = message.viewerActions && message.viewerActions.length > 0;
     const hasReferences = message.references && message.references.length > 0;
+
+    const actionStyle = hasViewerActions ? getActionButtonStyle(message.viewerActions!) : null;
 
     return (
         <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
@@ -141,22 +225,19 @@ export default function ChatMessage({ message, onReferenceClick }: ChatMessagePr
                     </div>
                 )}
 
-                {/* Viewer Action Indicator */}
-                {hasViewerActions && (
-                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-text-muted">
-                        <Eye size={12} className="text-primary" />
-                        <span>
-                            {message.viewerActions!.map((a: any) => {
-                                if (!a) return "";
-                                switch (a.type) {
-                                    case "OPEN_REPORT": return `📄 Opened report in viewer`;
-                                    case "OPEN_DICOM": return `🔬 Opened scan in viewer`;
-                                    case "OPEN_METADATA": return `📋 Opened patient info`;
-                                    default: return `Updated viewer`;
-                                }
-                            }).filter(Boolean).join(" • ")}
-                        </span>
-                    </div>
+                {/* Single Viewer Action Button */}
+                {actionStyle && (
+                    <button
+                        onClick={() => onExecuteActions?.(message.viewerActions!)}
+                        className={`
+                            flex items-center gap-1.5 px-3 py-1.5 mt-2 rounded-lg text-xs font-medium
+                            border transition-all duration-200 cursor-pointer
+                            ${actionStyle.bgClass} ${actionStyle.textClass} ${actionStyle.borderClass} ${actionStyle.hoverClass}
+                        `}
+                    >
+                        {actionStyle.icon}
+                        {actionStyle.label}
+                    </button>
                 )}
 
                 {/* Timestamp */}
@@ -167,3 +248,4 @@ export default function ChatMessage({ message, onReferenceClick }: ChatMessagePr
         </div>
     );
 }
+

@@ -2,15 +2,30 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, Input, Label, Button } from "@/components/ui/basic"
-import { Save, Trash2, AlertTriangle, Database, Skull, CheckCircle, X, Server } from "lucide-react"
+import { Save, Trash2, AlertTriangle, Database, Skull, CheckCircle, X, Server, ArrowLeft, Paintbrush, BrainCircuit, Link2, HardDrive, Users, Shield } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { UserManagementPanel } from "@/components/dashboard/UserManagementPanel"
 import { AppearancePanel } from "@/components/dashboard/AppearancePanel"
 import { AIConfigPanel } from "@/components/dashboard/AIConfigPanel"
 import { CopilotConfigPanel } from "@/components/dashboard/CopilotConfigPanel"
+import { SegmentationConfigPanel } from "@/components/dashboard/SegmentationConfigPanel"
+import { FhirIntegrationPanel } from "@/components/dashboard/FhirIntegrationPanel"
+import { SecurityPanel } from "@/components/settings/SecurityPanel"
+
+type SettingsSection = "appearance" | "users" | "security" | "ai" | "integrations" | "storage"
+
+const navItems: { id: SettingsSection; label: string; icon: React.ElementType }[] = [
+    { id: "appearance", label: "Appearance", icon: Paintbrush },
+    { id: "users", label: "User Management", icon: Users },
+    { id: "security", label: "Security", icon: Shield },
+    { id: "ai", label: "AI Configurations", icon: BrainCircuit },
+    { id: "integrations", label: "Integrations", icon: Link2 },
+    { id: "storage", label: "Storage Management", icon: HardDrive },
+]
 
 export default function SettingsPage() {
     const router = useRouter();
+    const [activeSection, setActiveSection] = React.useState<SettingsSection>("appearance")
     const [config, setConfig] = React.useState({
         n8nWebhookUrl: "",
         supabaseUrl: "",
@@ -118,171 +133,244 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div className="space-y-1">
-                <h2 className="text-2xl font-semibold text-text-heading">Settings</h2>
-                <p className="text-text-secondary text-sm">Configure API connections and integrations.</p>
-            </div>
+        <div className="flex h-full">
+            {/* Settings Sidebar */}
+            <aside className="w-[260px] min-w-[260px] h-full bg-bg-surface border-r border-border-primary flex flex-col overflow-y-auto shrink-0">
+                {/* Back to app */}
+                <button
+                    onClick={() => router.push('/')}
+                    className="flex items-center gap-2 px-5 py-4 text-sm text-text-muted hover:text-text-primary transition-colors group"
+                >
+                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
+                    <span>Back to app</span>
+                </button>
 
-            {/* Appearance Settings */}
-            <AppearancePanel />
-
-            {/* AI Engine Configuration */}
-            <AIConfigPanel />
-
-            {/* AI Copilot Chat Configuration */}
-            <CopilotConfigPanel />
-
-            {/* PACS / Orthanc Configuration */}
-            <Card className="bg-bg-surface border-border-primary">
-                <CardHeader>
-                    <CardTitle className="text-text-heading flex items-center gap-2">
-                        <Server size={20} className="text-blue-500" />
-                        PACS & Orthanc Configuration
-                    </CardTitle>
-                    <p className="text-sm text-text-secondary">Connect to a DICOMweb-compliant PACS server (e.g. Orthanc).</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="pacsOrthancUrl" className="text-text-primary">DICOMweb Base URL *</Label>
-                        <Input
-                            id="pacsOrthancUrl"
-                            type="url"
-                            placeholder="http://localhost:8042/dicom-web"
-                            value={config.pacsOrthancUrl}
-                            onChange={handleChange}
-                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
-                        />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="pacsAuthType" className="text-text-primary">Authentication Type</Label>
-                            <select
-                                id="pacsAuthType"
-                                value={config.pacsAuthType}
-                                onChange={handleSelectChange}
-                                className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                {/* Navigation Items */}
+                <nav className="flex flex-col px-3 pb-6 gap-0.5">
+                    {navItems.map((item) => {
+                        const Icon = item.icon
+                        const isActive = activeSection === item.id
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveSection(item.id)}
+                                className={`
+                                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-left w-full
+                                    ${isActive
+                                        ? 'bg-white/10 text-text-heading shadow-sm'
+                                        : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                                    }
+                                `}
                             >
-                                <option value="none">None</option>
-                                <option value="basic">Basic (Username/Password)</option>
-                                <option value="bearer">Bearer Token</option>
-                            </select>
-                        </div>
-                        <div>
-                            <Label htmlFor="pacsAeTitle" className="text-text-primary">Local AE Title (Optional)</Label>
-                            <Input
-                                id="pacsAeTitle"
-                                type="text"
-                                placeholder="OPENRAD"
-                                value={config.pacsAeTitle}
-                                onChange={handleChange}
-                                className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
-                            />
-                        </div>
+                                <Icon size={18} className={isActive ? 'text-primary' : 'text-text-muted'} />
+                                <span>{item.label}</span>
+                            </button>
+                        )
+                    })}
+                </nav>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto p-8 space-y-6">
+                    {/* Section Header */}
+                    <div className="mb-2">
+                        <h2 className="text-2xl font-semibold text-text-heading">
+                            {navItems.find(n => n.id === activeSection)?.label}
+                        </h2>
                     </div>
 
-                    {config.pacsAuthType === "basic" && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="pacsUsername" className="text-text-primary">Username</Label>
-                                <Input
-                                    id="pacsUsername"
-                                    type="text"
-                                    placeholder="orthanc"
-                                    value={config.pacsUsername}
-                                    onChange={handleChange}
-                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="pacsPassword" className="text-text-primary">Password</Label>
-                                <Input
-                                    id="pacsPassword"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={config.pacsPassword}
-                                    onChange={handleChange}
-                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
-                                />
-                            </div>
+                    {/* Appearance Section */}
+                    {activeSection === "appearance" && (
+                        <div className="space-y-6">
+                            <AppearancePanel />
                         </div>
                     )}
 
-                    {config.pacsAuthType === "bearer" && (
-                        <div>
-                            <Label htmlFor="pacsBearerToken" className="text-text-primary">Bearer Token</Label>
-                            <Input
-                                id="pacsBearerToken"
-                                type="password"
-                                placeholder="eyJhbGciOiJIUzI1NiIsInR..."
-                                value={config.pacsBearerToken}
-                                onChange={handleChange}
-                                className="mt-1 bg-bg-panel border-border-primary text-text-primary"
-                            />
+                    {/* User Management Section */}
+                    {activeSection === "users" && (
+                        <div className="space-y-6">
+                            <UserManagementPanel />
                         </div>
                     )}
 
-                    <Button
-                        onClick={handleSave}
-                        className="w-full mt-4 bg-primary-main hover:bg-primary-hover text-white gap-2"
-                    >
-                        <Save size={16} />
-                        {isSaved ? "Saved!" : "Save PACS Configuration"}
-                    </Button>
-                </CardContent>
-            </Card>
-
-            {/* User Management */}
-            <UserManagementPanel />
-
-            {/* Database Management */}
-            <Card className="bg-bg-surface border-border-primary border-t-4 border-t-red-500">
-                <CardHeader>
-                    <CardTitle className="text-text-heading flex items-center gap-2">
-                        <Database size={20} className="text-red-500" />
-                        Database Management
-                    </CardTitle>
-                    <p className="text-sm text-text-secondary">Manage your report storage and history.</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="p-4 bg-red-50 border border-red-100 rounded-lg flex gap-3 text-red-800">
-                        <AlertTriangle className="shrink-0 w-5 h-5" />
-                        <div className="space-y-1">
-                            <p className="font-semibold text-sm">Clear Local History</p>
-                            <p className="text-xs opacity-90">This will remove all reports AND patients from your Local Database ONLY. Cloud data will remain safe.</p>
+                    {/* Security Section */}
+                    {activeSection === "security" && (
+                        <div className="space-y-6">
+                            <SecurityPanel />
                         </div>
-                    </div>
+                    )}
 
-                    <Button
-                        onClick={() => setShowClearModal(true)}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center justify-center gap-2"
-                    >
-                        <Trash2 size={16} />
-                        Clear Local Reports & Patients
-                    </Button>
-
-                    {/* Divider */}
-                    <div className="border-t border-red-200 dark:border-red-900/50 my-2"></div>
-
-                    {/* Delete Account / Factory Reset */}
-                    <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-500/40 rounded-lg flex gap-3 text-red-800 dark:text-red-400">
-                        <Skull className="shrink-0 w-5 h-5 mt-0.5" />
-                        <div className="space-y-1">
-                            <p className="font-semibold text-sm text-red-800 dark:text-red-400">Factory Reset — Delete Everything</p>
-                            <p className="text-xs opacity-80">This will permanently delete ALL users, reports, settings, and data. The app will restart from the initial setup screen. This action is irreversible.</p>
+                    {/* AI Configurations Section */}
+                    {activeSection === "ai" && (
+                        <div className="space-y-6">
+                            <AIConfigPanel />
+                            <CopilotConfigPanel />
+                            <SegmentationConfigPanel />
                         </div>
-                    </div>
+                    )}
 
-                    <Button
-                        onClick={() => setShowWipeModal(true)}
-                        className="w-full bg-red-900 hover:bg-red-800 text-red-100 font-semibold flex items-center justify-center gap-2 border border-red-700"
-                    >
-                        <Skull size={16} />
-                        Delete Everything & Reset Application
-                    </Button>
-                </CardContent>
-            </Card>
+                    {/* Integrations Section */}
+                    {activeSection === "integrations" && (
+                        <div className="space-y-6">
+                            {/* PACS / Orthanc Configuration */}
+                            <Card className="bg-bg-surface border-border-primary">
+                                <CardHeader>
+                                    <CardTitle className="text-text-heading flex items-center gap-2">
+                                        <Server size={20} className="text-blue-500" />
+                                        PACS & Orthanc Configuration
+                                    </CardTitle>
+                                    <p className="text-sm text-text-secondary">Connect to a DICOMweb-compliant PACS server (e.g. Orthanc).</p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div>
+                                        <Label htmlFor="pacsOrthancUrl" className="text-text-primary">DICOMweb Base URL *</Label>
+                                        <Input
+                                            id="pacsOrthancUrl"
+                                            type="url"
+                                            placeholder="http://localhost:8042/dicom-web"
+                                            value={config.pacsOrthancUrl}
+                                            onChange={handleChange}
+                                            className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
+                                        />
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="pacsAuthType" className="text-text-primary">Authentication Type</Label>
+                                            <select
+                                                id="pacsAuthType"
+                                                value={config.pacsAuthType}
+                                                onChange={handleSelectChange}
+                                                className="flex h-10 w-full rounded-md border border-border-primary bg-bg-panel px-3 py-2 text-sm text-text-primary mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                            >
+                                                <option value="none">None</option>
+                                                <option value="basic">Basic (Username/Password)</option>
+                                                <option value="bearer">Bearer Token</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="pacsAeTitle" className="text-text-primary">Local AE Title (Optional)</Label>
+                                            <Input
+                                                id="pacsAeTitle"
+                                                type="text"
+                                                placeholder="OPENRAD"
+                                                value={config.pacsAeTitle}
+                                                onChange={handleChange}
+                                                className="mt-1 bg-bg-panel border-border-primary text-text-primary placeholder-text-muted"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {config.pacsAuthType === "basic" && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="pacsUsername" className="text-text-primary">Username</Label>
+                                                <Input
+                                                    id="pacsUsername"
+                                                    type="text"
+                                                    placeholder="orthanc"
+                                                    value={config.pacsUsername}
+                                                    onChange={handleChange}
+                                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="pacsPassword" className="text-text-primary">Password</Label>
+                                                <Input
+                                                    id="pacsPassword"
+                                                    type="password"
+                                                    placeholder="••••••••"
+                                                    value={config.pacsPassword}
+                                                    onChange={handleChange}
+                                                    className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {config.pacsAuthType === "bearer" && (
+                                        <div>
+                                            <Label htmlFor="pacsBearerToken" className="text-text-primary">Bearer Token</Label>
+                                            <Input
+                                                id="pacsBearerToken"
+                                                type="password"
+                                                placeholder="eyJhbGciOiJIUzI1NiIsInR..."
+                                                value={config.pacsBearerToken}
+                                                onChange={handleChange}
+                                                className="mt-1 bg-bg-panel border-border-primary text-text-primary"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        onClick={handleSave}
+                                        className="w-full mt-4 bg-primary-main hover:bg-primary-hover text-white gap-2"
+                                    >
+                                        <Save size={16} />
+                                        {isSaved ? "Saved!" : "Save PACS Configuration"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
+                            <FhirIntegrationPanel />
+                        </div>
+                    )}
+
+                    {/* Storage Management Section */}
+                    {activeSection === "storage" && (
+                        <div className="space-y-6">
+                            {/* Database Management */}
+                            <Card className="bg-bg-surface border-border-primary border-t-4 border-t-red-500">
+                                <CardHeader>
+                                    <CardTitle className="text-text-heading flex items-center gap-2">
+                                        <Database size={20} className="text-red-500" />
+                                        Database Management
+                                    </CardTitle>
+                                    <p className="text-sm text-text-secondary">Manage your report storage and history.</p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-500/20 rounded-lg flex gap-3 text-red-800 dark:text-red-400">
+                                        <AlertTriangle className="shrink-0 w-5 h-5" />
+                                        <div className="space-y-1">
+                                            <p className="font-semibold text-sm">Clear Local History</p>
+                                            <p className="text-xs opacity-90">This will remove all reports AND patients from your Local Database ONLY. Cloud data will remain safe.</p>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        onClick={() => setShowClearModal(true)}
+                                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center justify-center gap-2"
+                                    >
+                                        <Trash2 size={16} />
+                                        Clear Local Reports & Patients
+                                    </Button>
+
+                                    {/* Divider */}
+                                    <div className="border-t border-red-200 dark:border-red-900/50 my-2"></div>
+
+                                    {/* Delete Account / Factory Reset */}
+                                    <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-500/40 rounded-lg flex gap-3 text-red-800 dark:text-red-400">
+                                        <Skull className="shrink-0 w-5 h-5 mt-0.5" />
+                                        <div className="space-y-1">
+                                            <p className="font-semibold text-sm text-red-800 dark:text-red-400">Factory Reset — Delete Everything</p>
+                                            <p className="text-xs opacity-80">This will permanently delete ALL users, reports, settings, and data. The app will restart from the initial setup screen. This action is irreversible.</p>
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        onClick={() => setShowWipeModal(true)}
+                                        className="w-full bg-red-900 hover:bg-red-800 text-red-100 font-semibold flex items-center justify-center gap-2 border border-red-700"
+                                    >
+                                        <Skull size={16} />
+                                        Delete Everything & Reset Application
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            </main>
 
             {/* Success Toast */}
             {successMessage && (

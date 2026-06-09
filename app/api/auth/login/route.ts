@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
         // Set session cookie
         const cookieStore = await cookies();
-        cookieStore.set('openrad_session_id', sessionId, {
+        cookieStore.set('omnirad_session_id', sessionId, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',

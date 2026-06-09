@@ -33,7 +33,7 @@ export async function ensureSupabaseConfig() {
             }
         }
     } catch (e) {
-        console.warn("[OpenRad] Could not fetch Supabase config from API:", e);
+        console.warn("[OmniRad] Could not fetch Supabase config from API:", e);
     }
 }
 
@@ -56,7 +56,7 @@ export const getSupabaseClient = (): SupabaseClient | null => {
             cachedClient = createClient(supabaseUrl, supabaseAnonKey);
             return cachedClient;
         } catch (e) {
-            console.error("[OpenRad] Failed to create Supabase client:", e);
+            console.error("[OmniRad] Failed to create Supabase client:", e);
             return null;
         }
     }

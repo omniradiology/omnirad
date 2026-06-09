@@ -56,7 +56,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
     // -- LOCAL STORAGE PACS LISTENER --
     React.useEffect(() => {
         if (typeof window !== "undefined") {
-            const pacsStr = localStorage.getItem("openrad_pending_pacs_import");
+            const pacsStr = localStorage.getItem("omnirad_pending_pacs_import");
             if (pacsStr) {
                 try {
                     const data = JSON.parse(pacsStr);
@@ -72,7 +72,7 @@ export function PatientForm({ onSubmit, isGenerating }: PatientFormProps) {
                         gender: data.gender || prev.gender,
                     }));
                     // Clean up so it doesn't linger forever
-                    localStorage.removeItem("openrad_pending_pacs_import");
+                    localStorage.removeItem("omnirad_pending_pacs_import");
                 } catch (e) { }
             }
         }

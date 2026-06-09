@@ -16,10 +16,10 @@ export async function ensurePatientsMigrated() {
         if (res.ok) {
             const data = await res.json();
             if (data.migrated > 0) {
-                console.log(`[OpenRad] Migrated ${data.migrated} local reports to patient records.`);
+                console.log(`[OmniRad] Migrated ${data.migrated} local reports to patient records.`);
             }
         }
     } catch (e) {
-        console.warn("[OpenRad] Failed to auto-migrate patients:", e);
+        console.warn("[OmniRad] Failed to auto-migrate patients:", e);
     }
 }

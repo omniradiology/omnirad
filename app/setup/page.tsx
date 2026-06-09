@@ -67,13 +67,13 @@ export default function SetupPage() {
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
                 <div className="relative bg-bg-panel border border-border-primary rounded-full p-2 flex flex-col items-center justify-center shadow-lg">
-                  <Image src="/logo.svg" alt="OpenRad Logo" width={180} height={180} priority className="object-contain" />
+                  <Image src="/logo.svg" alt="OmniRad Logo" width={180} height={180} priority className="object-contain" />
                 </div>
               </div>
             </div>
             
             <h1 className="text-3xl font-bold text-text-heading mb-4 tracking-tight">
-              Welcome to OpenRad
+              Welcome to OmniRad
             </h1>
             
             <p className="text-text-secondary leading-relaxed mb-10">

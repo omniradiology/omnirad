@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
 
     // 1. Check if setup is needed
     // We use a cookie to cache the setup status and avoid hitting the API route on every request.
-    const setupCompleteCookie = request.cookies.get('openrad_setup_complete');
+    const setupCompleteCookie = request.cookies.get('omnirad_setup_complete');
     
     if (!setupCompleteCookie || setupCompleteCookie.value !== 'true') {
         try {
@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
                 } else {
                     // System has users, cache this fact so we don't check again
                     const response = NextResponse.next();
-                    response.cookies.set('openrad_setup_complete', 'true', { path: '/' });
+                    response.cookies.set('omnirad_setup_complete', 'true', { path: '/' });
                     
                     // If they are on /setup but setup is complete, redirect to login
                     if (pathname.startsWith('/setup')) {
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
                     if (!hasUsers) {
                         // DB was wiped! Clear stale cookie and redirect to setup
                         const response = NextResponse.redirect(new URL('/setup', request.url));
-                        response.cookies.delete('openrad_setup_complete');
+                        response.cookies.delete('omnirad_setup_complete');
                         return response;
                     }
                 }
@@ -73,14 +73,23 @@ export async function middleware(request: NextRequest) {
     }
 
     // 2. Auth Route Protection
-    // Allow public access to /login and all other /api routes
+    // Allow public access to /login, /api, and the auto-login route
     if (pathname.startsWith('/login') || pathname.startsWith('/api')) {
         return NextResponse.next();
     }
 
     // Protect all other routes
-    const sessionCookie = request.cookies.get('openrad_session_id');
+    const sessionCookie = request.cookies.get('omnirad_session_id');
     if (!sessionCookie) {
+        // Check if app is in "unlocked" mode via signal cookie
+        const appUnlocked = request.cookies.get('omnirad_app_unlocked');
+        if (appUnlocked?.value === 'true') {
+            // Auto-login: redirect to the auto-login endpoint which creates a session
+            const autoLoginUrl = new URL('/api/auth/auto-login', request.url);
+            autoLoginUrl.searchParams.set('redirect', pathname);
+            return NextResponse.redirect(autoLoginUrl);
+        }
+
         const loginUrl = new URL('/login', request.url);
         // Save the intended url to redirect back after login
         loginUrl.searchParams.set('redirect', pathname);

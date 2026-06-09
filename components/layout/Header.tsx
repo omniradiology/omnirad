@@ -12,7 +12,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 </Button>
                 <div className="flex items-center gap-2 text-primary">
                     <Activity className="h-6 w-6" />
-                    <span className="text-lg font-bold text-text-heading tracking-tight">OpenRad</span>
+                    <span className="text-lg font-bold text-text-heading tracking-tight">OmniRad</span>
                 </div>
             </div>
         </header>

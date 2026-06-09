@@ -1,5 +1,5 @@
 """
-OpenRad AI Copilot — LangGraph Workflow
+OmniRad AI Copilot — LangGraph Workflow
 
 The core AI agent that processes user messages, queries patient data,
 and returns responses with viewer action commands.
@@ -32,7 +32,7 @@ TOOL_STATUS_MAP = {
 }
 
 
-COPILOT_SYSTEM_PROMPT = """You are OpenRad AI Copilot, an expert radiology assistant integrated into a medical imaging workspace.
+COPILOT_SYSTEM_PROMPT = """You are OmniRad AI Copilot, an expert radiology assistant integrated into a medical imaging workspace.
 
 You have access to the following capabilities:
 - Search for patients by name
@@ -98,7 +98,7 @@ The run_segmentation tool automatically picks the best annotation style based on
 
 def _get_db_path() -> str:
     base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(base, "data", "openrad.db")
+    return os.path.join(base, "data", "omnirad.db")
 
 
 def _get_copilot_config() -> Optional[Dict[str, Any]]:
@@ -160,7 +160,7 @@ def _create_llm(config: Dict[str, Any]):
         if langsmith_project:
             os.environ["LANGCHAIN_PROJECT"] = langsmith_project
         else:
-            os.environ["LANGCHAIN_PROJECT"] = "openrad-copilot"
+            os.environ["LANGCHAIN_PROJECT"] = "omnirad-copilot"
     
     if is_gemini:
         from langchain_google_genai import ChatGoogleGenerativeAI

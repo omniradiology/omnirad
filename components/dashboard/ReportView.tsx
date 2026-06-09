@@ -23,6 +23,7 @@ interface ReportViewProps {
 
 export function ReportView({ report, onNewPatient, reportId, imagePreview, imagesPreviews = [], onStatusChange }: ReportViewProps) {
     const [currentUser, setCurrentUser] = React.useState({ name: "Dr. User", role: "Doctor" });
+    const [logoUrl, setLogoUrl] = React.useState<string>("");
 
     // Local state for the report footer and collaboration so UI re-renders immediately
     const [footer, setFooter] = React.useState({ ...report.report_footer });
@@ -52,7 +53,17 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, image
                     });
                 }
             })
-            .catch(e => console.error("Error loading user profile:", e));
+            .catch(e => console.error("Error fetching current user:", e));
+
+        // Load appearance settings (logo)
+        fetch('/api/settings?type=appearance')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.logo) {
+                    setLogoUrl(data.logo);
+                }
+            })
+            .catch(e => console.error("Error fetching appearance settings:", e));
     }, []);
 
     const handleAddComment = async (text: string) => {
@@ -122,20 +133,23 @@ export function ReportView({ report, onNewPatient, reportId, imagePreview, image
 
         // Determine template preference
         let template: 'standard' | 'modern' | 'minimal' = 'standard';
+        let logoToUse = logoUrl;
+        
         try {
-            const savedConfig = localStorage.getItem("openrad_appearance");
-            if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                if (config.reportTemplate) {
-                    template = config.reportTemplate;
-                }
+            const res = await fetch('/api/settings?type=appearance');
+            const config = await res.json();
+            if (config.template) {
+                template = config.template;
+            }
+            if (config.logo) {
+                logoToUse = config.logo;
             }
         } catch (e) {
             console.error("Error reading template preference", e);
         }
 
         const { generatePDF } = await import('@/lib/pdfHelper');
-        await generatePDF(report, filename, template);
+        await generatePDF(report, filename, template, logoToUse);
     };
     const urgencyColor = report.urgency === 'Critical' ? 'text-red-600' :
         report.urgency === 'Urgent' ? 'text-orange-600' : 'text-green-600';

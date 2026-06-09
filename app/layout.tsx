@@ -3,7 +3,7 @@ import "./globals.css";
 import ClientLayout from "@/components/layout/ClientLayout";
 
 export const metadata: Metadata = {
-  title: "OpenRad - AI Radiology",
+  title: "OmniRad - AI Radiology",
   description: "AI-powered radiology report generation",
 };
 
@@ -19,7 +19,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const appearance = localStorage.getItem('openrad_appearance');
+                const appearance = localStorage.getItem('omnirad_appearance');
                 if (appearance) {
                   const data = JSON.parse(appearance);
                   if (data.theme === 'light') {

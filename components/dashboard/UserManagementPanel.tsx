@@ -146,7 +146,7 @@ export function UserManagementPanel() {
                     <div className="flex items-center justify-between border-b border-border-primary/50 pb-4">
                         <div>
                             <h3 className="text-lg font-semibold text-text-heading">Create New User</h3>
-                            <p className="text-sm text-text-muted mt-1">Add a new team member to OpenRad and assign their permissions.</p>
+                            <p className="text-sm text-text-muted mt-1">Add a new team member to OmniRad and assign their permissions.</p>
                         </div>
                         <div className="p-3 bg-primary/10 rounded-full hidden sm:block">
                             <UserPlus size={24} className="text-primary" />

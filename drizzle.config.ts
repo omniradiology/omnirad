@@ -5,6 +5,6 @@ export default defineConfig({
     out: "./db/migrations",
     dialect: "sqlite",
     dbCredentials: {
-        url: "./data/openrad.db",
+        url: "./data/omnirad.db",
     },
 });

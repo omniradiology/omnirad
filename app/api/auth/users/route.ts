@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 
 async function checkIsAdmin() {
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get('openrad_session_id')?.value;
+    const sessionId = cookieStore.get('omnirad_session_id')?.value;
     if (!sessionId) return false;
 
     const sessionList = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);

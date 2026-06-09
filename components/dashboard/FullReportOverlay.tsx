@@ -41,6 +41,7 @@ export function FullReportOverlay({
 }: FullReportOverlayProps) {
     const [isImageCollapsed, setIsImageCollapsed] = React.useState(false);
     const [selectedTemplate, setSelectedTemplate] = React.useState<string>('standard');
+    const [logoUrl, setLogoUrl] = React.useState<string>('');
 
     // Local state for collaboration to ensure immediate UI updates
     const [localComments, setLocalComments] = React.useState<Comment[]>(report.collaboration?.comments || []);
@@ -56,6 +57,9 @@ export function FullReportOverlay({
             .then(config => {
                 if (config.template) {
                     setSelectedTemplate(config.template);
+                }
+                if (config.logo) {
+                    setLogoUrl(config.logo);
                 }
             })
             .catch(e => console.error("Error loading template preference:", e));
@@ -254,9 +258,9 @@ export function FullReportOverlay({
                 <div className="flex-1 bg-gray-100 overflow-y-auto p-8 relative">
                     {/* Render selected template */}
                     <div className="animate-in fade-in duration-300">
-                        {selectedTemplate === 'modern' ? <ModernTemplate report={report} /> :
-                            selectedTemplate === 'minimal' ? <MinimalTemplate report={report} /> :
-                                <StandardTemplate report={report} />}
+                        {selectedTemplate === 'modern' ? <ModernTemplate report={report} logoUrl={logoUrl} /> :
+                            selectedTemplate === 'minimal' ? <MinimalTemplate report={report} logoUrl={logoUrl} /> :
+                                <StandardTemplate report={report} logoUrl={logoUrl} />}
                     </div>
                 </div>
             </div>

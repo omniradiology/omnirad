@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { config, profile, appearance, users } from "@/db/schema";
+import { config, profile, appearance, security, users, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 // GET /api/settings?type=config|profile|appearance|users
 export async function GET(request: NextRequest) {
@@ -71,8 +72,34 @@ export async function GET(request: NextRequest) {
                 });
             }
 
+            case "security": {
+                const row = db.select().from(security).where(eq(security.id, 1)).get();
+                if (!row) {
+                    return NextResponse.json({
+                        appLockEnabled: true,
+                        defaultUserId: null,
+                        updatedBy: null,
+                        updatedAt: null,
+                        updatedByName: null,
+                    });
+                }
+                // Get the name of who last changed it
+                let updatedByName = null;
+                if (row.updatedBy) {
+                    const updater = db.select({ fullName: users.fullName }).from(users).where(eq(users.id, row.updatedBy)).get();
+                    updatedByName = updater?.fullName || null;
+                }
+                return NextResponse.json({
+                    appLockEnabled: row.appLockEnabled ?? true,
+                    defaultUserId: row.defaultUserId || null,
+                    updatedBy: row.updatedBy || null,
+                    updatedAt: row.updatedAt || null,
+                    updatedByName,
+                });
+            }
+
             default:
-                return NextResponse.json({ error: "Invalid type. Use: config, profile, appearance, or users" }, { status: 400 });
+                return NextResponse.json({ error: "Invalid type. Use: config, profile, appearance, security, or users" }, { status: 400 });
         }
     } catch (error) {
         console.error("[API] Error reading settings:", error);
@@ -155,6 +182,54 @@ export async function PUT(request: NextRequest) {
                         logo: data.logo || "",
                     }).run();
                 }
+                break;
+            }
+
+            case "security": {
+                // Admin-only: verify the current user is an admin
+                const cookieStore = await cookies();
+                const sessionId = cookieStore.get('omnirad_session_id')?.value;
+                if (!sessionId) {
+                    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+                }
+                const sessionList = db.select().from(sessions).where(eq(sessions.id, sessionId)).all();
+                const session = sessionList[0];
+                if (!session || session.expiresAt * 1000 < Date.now()) {
+                    return NextResponse.json({ error: "Session expired" }, { status: 401 });
+                }
+                const currentUser = db.select().from(users).where(eq(users.id, session.userId)).get();
+                if (!currentUser || currentUser.role !== 'Admin') {
+                    return NextResponse.json({ error: "Only administrators can change security settings" }, { status: 403 });
+                }
+
+                const appLockEnabled = data.appLockEnabled ?? true;
+                const defaultUserId = data.defaultUserId || null;
+                const secExists = db.select().from(security).where(eq(security.id, 1)).get();
+                const secData = {
+                    appLockEnabled,
+                    defaultUserId,
+                    updatedBy: currentUser.id,
+                    updatedAt: new Date().toISOString(),
+                };
+                if (secExists) {
+                    db.update(security).set(secData).where(eq(security.id, 1)).run();
+                } else {
+                    db.insert(security).values({ id: 1, ...secData }).run();
+                }
+
+                // Set or clear the middleware signal cookie
+                if (!appLockEnabled) {
+                    cookieStore.set('omnirad_app_unlocked', 'true', {
+                        httpOnly: false,
+                        secure: process.env.NODE_ENV === 'production',
+                        sameSite: 'lax',
+                        path: '/',
+                        maxAge: 60 * 60 * 24 * 365, // 1 year
+                    });
+                } else {
+                    cookieStore.delete('omnirad_app_unlocked');
+                }
+
                 break;
             }
 

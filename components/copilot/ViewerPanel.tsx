@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ViewerTab } from "@/types/copilot";
 import { MonitorDot, FileText, ClipboardList, FolderOpen, User, Calendar, Stethoscope, Activity, ExternalLink } from "lucide-react";
+import CopilotCornerstoneViewer from "./CopilotCornerstoneViewer";
+import type { CopilotViewerRef } from "@/types/copilot-viewer";
 
 interface ViewerPanelProps {
     activeTab: ViewerTab;
@@ -13,6 +15,7 @@ interface ViewerPanelProps {
     currentPatientId: string | null;
     onReportSelect: (reportId: string) => void;
     onPatientContext: (patientId: string, patientName?: string) => void;
+    viewerRef?: React.RefObject<CopilotViewerRef>;
 }
 
 interface ReportData {
@@ -32,6 +35,7 @@ export default function ViewerPanel({
     currentPatientId,
     onReportSelect,
     onPatientContext,
+    viewerRef,
 }: ViewerPanelProps) {
     const [reportData, setReportData] = useState<ReportData | null>(null);
     const [patientReports, setPatientReports] = useState<any[]>([]);
@@ -120,7 +124,7 @@ export default function ViewerPanel({
                 )}
 
                 {!isLoading && activeTab === "dicom" && (
-                    <DicomTab reportData={reportData} currentSlice={currentSlice} />
+                    <DicomTab reportData={reportData} currentSlice={currentSlice} viewerRef={viewerRef} />
                 )}
 
                 {!isLoading && activeTab === "report" && (
@@ -202,67 +206,21 @@ export default function ViewerPanel({
 }
 
 // ─── DICOM Tab ───────────────────────────────────────────────────────────────
-function DicomTab({ reportData, currentSlice }: { reportData: ReportData | null; currentSlice: number }) {
+function DicomTab({ reportData, currentSlice, viewerRef }: { reportData: ReportData | null; currentSlice: number; viewerRef?: React.RefObject<CopilotViewerRef> }) {
     const imageData = reportData?.reportData?.image_data || reportData?.imageData;
     const imagesData = reportData?.reportData?.images_data;
-    const [currentIndex, setCurrentIndex] = useState(0);
-
-    useEffect(() => {
-        if (currentSlice > 0) setCurrentIndex(currentSlice - 1);
-    }, [currentSlice]);
 
     const images: string[] = imagesData && imagesData.length > 0
         ? imagesData
         : imageData ? [imageData] : [];
 
-    if (images.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-text-muted gap-4 p-8">
-                <MonitorDot size={48} className="opacity-30" />
-                <div className="text-center">
-                    <p className="font-medium text-text-secondary">No DICOM Images</p>
-                    <p className="text-sm mt-1">Ask the copilot to show a scan or select a report with images.</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="flex flex-col h-full bg-black/90">
-            {/* Image Display */}
-            <div className="flex-1 flex items-center justify-center p-4 relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                    src={images[currentIndex]}
-                    alt={`Medical image ${currentIndex + 1}`}
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                    style={{ filter: "brightness(1.1) contrast(1.05)" }}
-                />
-                {/* Slice indicator */}
-                {images.length > 1 && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/70 text-white text-sm px-4 py-1.5 rounded-full backdrop-blur-sm">
-                        Slice {currentIndex + 1} / {images.length}
-                    </div>
-                )}
-            </div>
-
-            {/* Slice Navigation */}
-            {images.length > 1 && (
-                <div className="px-6 py-3 bg-bg-surface border-t border-border-primary flex items-center gap-4">
-                    <span className="text-xs text-text-muted font-medium">SLICE</span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={images.length - 1}
-                        value={currentIndex}
-                        onChange={(e) => setCurrentIndex(parseInt(e.target.value))}
-                        className="flex-1 h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer accent-primary"
-                    />
-                    <span className="text-xs text-text-secondary font-mono w-12 text-right">
-                        {currentIndex + 1}/{images.length}
-                    </span>
-                </div>
-            )}
+        <div className="flex flex-col h-full bg-black/90 w-full">
+            <CopilotCornerstoneViewer
+                ref={viewerRef}
+                images={images}
+                currentSlice={currentSlice > 0 ? currentSlice - 1 : 0}
+            />
         </div>
     );
 }

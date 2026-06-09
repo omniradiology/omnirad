@@ -41,8 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # backups
-old_openrad/
-OpenRad guidlines.md
+old_omnirad/
 
 # database
 data/
@@ -50,10 +49,35 @@ sqlite.db
 *.db
 *.db-journal
 
-# Markdown plan files
+# Python AI service
+ai_service/.venv/
+ai_service/__pycache__/
+ai_service/agent/__pycache__/
+ai_service/models/__pycache__/
+__pycache__/
+*.pyc
+
+# Markdown plan / internal docs
 LangGraph-migration.md
 copilot-annaotation-plan.md
 radialogy_Copilot- Plan.md
 radialogy_Copilot- Plan-code.md
+omnirad_Copilot- Plan.md
+omnirad_Copilot- Plan-code.md
 hl7-fhir-integration-plan.md
-openrad-hipaa-gdpr-compliance-plan.md
+omnirad-hipaa-gdpr-compliance-plan.md
+OmniRad guidlines.md
+
+# Patient data exports (sensitive)
+patient_export_*.json
+
+# Backup files
+*.backup
+
+# Test / scratch files
+test_order.json
+test_api.py
+temp_migrate.js
+
+# IDE
+.vscode/

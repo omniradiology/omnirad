@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
         // ─── SSE Streaming Mode ─────────────────────────────────────────
         if (wantsStream) {
-            const pythonUrl = "http://localhost:8000/copilot/chat/stream";
+            const pythonUrl = "http://localhost:8001/copilot/chat/stream";
             let pythonResponse: Response;
             
             try {
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ─── Non-Streaming Mode (original behavior) ─────────────────────
-        const pythonUrl = "http://localhost:8000/copilot/chat";
+        const pythonUrl = "http://localhost:8001/copilot/chat";
         const pythonResponse = await fetch(pythonUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

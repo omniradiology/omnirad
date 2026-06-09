@@ -27,7 +27,7 @@ export function CopilotConfigPanel() {
         isActive: true,
         purpose: "copilot",
         langsmithApiKey: "",
-        langsmithProject: "openrad-copilot",
+        langsmithProject: "omnirad-copilot",
     })
 
     React.useEffect(() => {
@@ -48,7 +48,7 @@ export function CopilotConfigPanel() {
                             isActive: true,
                             purpose: "copilot",
                             langsmithApiKey: active.langsmithApiKey || "",
-                            langsmithProject: active.langsmithProject || "openrad-copilot",
+                            langsmithProject: active.langsmithProject || "omnirad-copilot",
                         })
                         if (active.apiEndpointUrl && (active.apiSecretKey || active.providerType === "ollama")) {
                             checkConnection(active.providerType, active.apiEndpointUrl, active.apiSecretKey)
@@ -84,7 +84,7 @@ export function CopilotConfigPanel() {
         setConnStatus("checking")
         setConnError("")
         try {
-            const res = await fetch("http://localhost:8000/test_ai_connection", {
+            const res = await fetch("http://localhost:8001/test_ai_connection", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ai_config: { providerType: type, apiEndpointUrl: url, apiSecretKey: key } })
@@ -297,7 +297,7 @@ export function CopilotConfigPanel() {
                                 value={formData.langsmithProject}
                                 onChange={handleChange}
                                 disabled={isLocked}
-                                placeholder="openrad-copilot"
+                                placeholder="omnirad-copilot"
                                 className="mt-1 bg-bg-panel border-border-primary text-text-primary disabled:opacity-50 text-sm"
                             />
                         </div>

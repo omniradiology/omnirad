@@ -70,7 +70,7 @@ export function PacsSeriesViewer({ study }: PacsSeriesViewerProps) {
         return () => { isMounted = false; };
     }, [study.studyInstanceUid]);
 
-    const handleSendToOpenRad = async (selectedSeries: DicomSeries) => {
+    const handleSendToOmniRad = async (selectedSeries: DicomSeries) => {
         setIsSending(true);
         try {
             // Wait, we need the exact first instance UID of the series to fetch it for the report
@@ -116,7 +116,7 @@ export function PacsSeriesViewer({ study }: PacsSeriesViewerProps) {
             };
 
             // Store this temporarily in localStorage so the report generation form can pick it up
-            localStorage.setItem("openrad_pending_pacs_import", JSON.stringify(metadata));
+            localStorage.setItem("omnirad_pending_pacs_import", JSON.stringify(metadata));
 
             // Navigate to Dashboard Generate Report
             router.push('/?source=pacs');
@@ -167,7 +167,7 @@ export function PacsSeriesViewer({ study }: PacsSeriesViewerProps) {
                             <Button 
                                 size="sm" 
                                 className="w-full bg-primary-main hover:bg-primary-hover text-white gap-2 border-none shadow-lg"
-                                onClick={(e) => { e.stopPropagation(); handleSendToOpenRad(s); }}
+                                onClick={(e) => { e.stopPropagation(); handleSendToOmniRad(s); }}
                                 disabled={isSending}
                             >
                                 <Send size={14} /> Send to AI

@@ -152,7 +152,7 @@ function ReportsContent() {
         const reportData = selectedReport.data;
         if (!reportData.report_footer) {
             reportData.report_footer = {
-                prepared_by: "OpenRad AI",
+                prepared_by: "OmniRad AI",
                 department: "Radiology",
                 report_status: "Pending"
             };

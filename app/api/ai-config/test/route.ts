@@ -15,7 +15,7 @@ export async function POST(req: Request) {
         const aiConfig = active[0];
         
         // Forward to local python backend
-        const pythonEndpoint = "http://localhost:8000/test_ai_connection";
+        const pythonEndpoint = "http://localhost:8001/test_ai_connection";
         const payload = {
             ai_config: {
                 providerType: aiConfig.providerType,

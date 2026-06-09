@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.patients (
 ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for users (assuming similar policy to reports where anon can use it if configured)
--- Or you can just use true for now matching local SQLite freedom. OpenRad uses anon keys.
+-- Or you can just use true for now matching local SQLite freedom. OmniRad uses anon keys.
 CREATE POLICY "Enable all for authenticated users" ON public.patients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all for anon users" ON public.patients FOR ALL USING (true) WITH CHECK (true);
 

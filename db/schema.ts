@@ -64,6 +64,15 @@ export const appearance = sqliteTable("appearance", {
     logo: text("logo").default(""),
 });
 
+// ─── Security Table (singleton) ──────────────────────────────────────────────
+export const security = sqliteTable("security", {
+    id: integer("id").primaryKey().default(1),
+    appLockEnabled: integer("app_lock_enabled", { mode: 'boolean' }).default(true), // true = locked (login required)
+    defaultUserId: text("default_user_id"),  // user to auto-login when unlocked (null = first admin)
+    updatedBy: text("updated_by"),    // user ID of admin who last changed this
+    updatedAt: text("updated_at"),    // ISO timestamp of last change
+});
+
 // ─── Users Table ─────────────────────────────────────────────────────────────
 export const users = sqliteTable("users", {
     id: text("id").primaryKey(),

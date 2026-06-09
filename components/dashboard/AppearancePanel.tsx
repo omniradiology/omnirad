@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/basic"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, Save, Building2, ImageIcon, Upload, Trash2 } from "lucide-react"
 
 interface AppearancePanelProps {
     onThemeChange?: (theme: string) => void;
@@ -15,6 +15,14 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
     const [activeTemplate, setActiveTemplate] = React.useState("standard");
     const [hospitalName, setHospitalName] = React.useState("");
     const [logo, setLogo] = React.useState("");
+    // Track saved branding values for dirty detection
+    const [savedHospitalName, setSavedHospitalName] = React.useState("");
+    const [savedLogo, setSavedLogo] = React.useState("");
+    const [brandingSaveStatus, setBrandingSaveStatus] = React.useState<'idle' | 'saving' | 'saved'>('idle');
+    const [isUploading, setIsUploading] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const isBrandingDirty = hospitalName !== savedHospitalName || logo !== savedLogo;
 
     // Load saved settings from SQLite
     React.useEffect(() => {
@@ -25,8 +33,12 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                 const loadedTemplate = data.template || "standard";
                 setSelectedTemplate(loadedTemplate);
                 setActiveTemplate(loadedTemplate);
-                setHospitalName(data.hospitalName || "");
-                setLogo(data.logo || "");
+                const loadedName = data.hospitalName || "";
+                const loadedLogo = data.logo || "";
+                setHospitalName(loadedName);
+                setLogo(loadedLogo);
+                setSavedHospitalName(loadedName);
+                setSavedLogo(loadedLogo);
             })
             .catch(e => console.error("Error loading appearance:", e));
     }, []);
@@ -61,21 +73,75 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
         onTemplateChange?.(selectedTemplate);
     };
 
-    const handleBrandingChange = (field: "hospitalName" | "logo", value: string) => {
-        const updates = { theme, template: selectedTemplate, hospitalName, logo };
-        updates[field] = value;
-
+    const handleBrandingFieldChange = (field: "hospitalName" | "logo", value: string) => {
         if (field === "hospitalName") setHospitalName(value);
         if (field === "logo") setLogo(value);
+        // Reset save status when user makes changes
+        if (brandingSaveStatus === 'saved') setBrandingSaveStatus('idle');
+    };
 
-        saveSettings(updates);
+    const handleSaveBranding = async () => {
+        setBrandingSaveStatus('saving');
+        try {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'appearance',
+                    data: { theme, template: activeTemplate, hospitalName, logo },
+                }),
+            });
+            setSavedHospitalName(hospitalName);
+            setSavedLogo(logo);
+            setBrandingSaveStatus('saved');
+            // Reset the "saved" badge after 3 seconds
+            setTimeout(() => setBrandingSaveStatus('idle'), 3000);
+        } catch (e) {
+            console.error("Error saving branding:", e);
+            setBrandingSaveStatus('idle');
+        }
+    };
+
+    const handleLogoUpload = async (file: File) => {
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file (PNG, JPG, SVG, etc.)');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File too large. Maximum size is 5MB.');
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success && data.url) {
+                setLogo(data.url);
+                if (brandingSaveStatus === 'saved') setBrandingSaveStatus('idle');
+            } else {
+                alert(data.error || 'Upload failed');
+            }
+        } catch (e) {
+            console.error('Logo upload error:', e);
+            alert('Upload failed. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setLogo('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (brandingSaveStatus === 'saved') setBrandingSaveStatus('idle');
     };
 
     return (
         <Card className="bg-bg-surface border-border-primary">
             <CardHeader>
                 <CardTitle className="text-text-heading">Appearance</CardTitle>
-                <p className="text-sm text-text-secondary">Customize the look and feel of OpenRad</p>
+                <p className="text-sm text-text-secondary">Customize the look and feel of OmniRad</p>
             </CardHeader>
             <CardContent className="space-y-6">
                 {/* Theme Selector */}
@@ -282,36 +348,141 @@ export function AppearancePanel({ onThemeChange, onTemplateChange }: AppearanceP
                 </div>
 
                 {/* Hospital Branding */}
-                <div className="space-y-4 pt-4 border-t border-border-primary">
-                    <h4 className="text-sm font-semibold text-text-heading">Hospital Branding</h4>
+                <div className="space-y-5 pt-6 border-t border-border-primary">
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Building2 size={18} className="text-text-heading" />
+                            <div>
+                                <h4 className="text-base font-bold text-text-heading">Hospital Branding</h4>
+                                <p className="text-xs text-text-muted mt-0.5">Customize your hospital identity on reports</p>
+                            </div>
+                        </div>
+                        {isBrandingDirty && (
+                            <span className="text-xs font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-full animate-pulse">
+                                Unsaved changes
+                            </span>
+                        )}
+                        {brandingSaveStatus === 'saved' && !isBrandingDirty && (
+                            <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full flex items-center gap-1">
+                                <CheckCircle size={12} /> Saved
+                            </span>
+                        )}
+                    </div>
 
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-text-primary">Hospital Name</label>
                         <input
                             type="text"
                             value={hospitalName}
-                            onChange={(e) => handleBrandingChange("hospitalName", e.target.value)}
+                            onChange={(e) => handleBrandingFieldChange("hospitalName", e.target.value)}
                             placeholder="General Hospital"
-                            className="w-full px-4 py-2 bg-bg-panel border border-border-primary rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-primary-main"
+                            className="w-full px-4 py-2.5 bg-bg-panel border border-border-primary rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-primary-main focus:ring-1 focus:ring-primary-main/30 transition-all"
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-text-primary">Logo URL</label>
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium text-text-primary">Hospital Logo</label>
+                        
+                        {/* Hidden file input */}
                         <input
-                            type="text"
-                            value={logo}
-                            onChange={(e) => handleBrandingChange("logo", e.target.value)}
-                            placeholder="https://example.com/logo.png"
-                            className="w-full px-4 py-2 bg-bg-panel border border-border-primary rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-primary-main"
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/gif,image/svg+xml,image/webp"
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleLogoUpload(file);
+                            }}
                         />
-                        <p className="text-xs text-text-muted">Enter a URL for your hospital logo (appears on reports)</p>
-                        {logo && (
-                            <div className="mt-2 p-2 bg-bg-panel border border-border-primary rounded">
-                                <p className="text-xs text-text-muted mb-1">Preview:</p>
-                                <img src={logo} alt="Logo preview" className="max-h-16 object-contain" />
+
+                        {logo ? (
+                            /* Logo Preview */
+                            <div className="relative group rounded-lg border border-border-primary bg-bg-panel overflow-hidden">
+                                <div className="p-4 flex items-center gap-4">
+                                    <div className="w-20 h-20 rounded-lg bg-white border border-gray-200 flex items-center justify-center p-2 shrink-0">
+                                        <img src={logo} alt="Hospital Logo" className="max-w-full max-h-full object-contain" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-text-primary truncate">Logo configured</p>
+                                        <p className="text-xs text-text-muted truncate mt-0.5">{logo}</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-xs px-3 py-1 rounded-md bg-bg-surface border border-border-primary text-text-primary hover:bg-primary-main/10 hover:border-primary-main/50 transition-all"
+                                            >
+                                                Change
+                                            </button>
+                                            <button
+                                                onClick={handleRemoveLogo}
+                                                className="text-xs px-3 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-all flex items-center gap-1"
+                                            >
+                                                <Trash2 size={12} /> Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            /* Upload Drop Zone */
+                            <div
+                                onClick={() => !isUploading && fileInputRef.current?.click()}
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary-main', 'bg-primary-main/5'); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary-main', 'bg-primary-main/5'); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('border-primary-main', 'bg-primary-main/5');
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file) handleLogoUpload(file);
+                                }}
+                                className={`relative cursor-pointer rounded-lg border-2 border-dashed border-border-primary bg-bg-panel/50 p-6 text-center transition-all hover:border-primary-main hover:bg-primary-main/5 ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}
+                            >
+                                {isUploading ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-8 h-8 border-2 border-primary-main border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-sm text-text-primary font-medium">Uploading...</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-12 h-12 rounded-full bg-primary-main/10 flex items-center justify-center">
+                                            <Upload size={20} className="text-primary-main" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-text-primary">Click to upload or drag & drop</p>
+                                            <p className="text-xs text-text-muted mt-0.5">PNG, JPG, SVG, or WebP (max 5MB)</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
+
+                        {/* Collapsible URL input as fallback */}
+                        <details className="group">
+                            <summary className="text-xs text-text-muted cursor-pointer hover:text-primary-main transition-colors select-none">
+                                Or enter a logo URL manually
+                            </summary>
+                            <input
+                                type="text"
+                                value={logo}
+                                onChange={(e) => handleBrandingFieldChange("logo", e.target.value)}
+                                placeholder="https://example.com/logo.png"
+                                className="mt-2 w-full px-4 py-2 bg-bg-panel border border-border-primary rounded-lg text-text-primary text-sm placeholder-text-muted focus:outline-none focus:border-primary-main focus:ring-1 focus:ring-primary-main/30 transition-all"
+                            />
+                        </details>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                        <button
+                            onClick={handleSaveBranding}
+                            disabled={!isBrandingDirty || brandingSaveStatus === 'saving'}
+                            className={`px-6 py-2.5 rounded-lg font-bold text-sm shadow-sm transition-all transform active:scale-95 flex items-center gap-2 ${
+                                !isBrandingDirty || brandingSaveStatus === 'saving'
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-primary-main text-white hover:bg-primary-dark shadow-md hover:shadow-lg'
+                            }`}
+                        >
+                            <Save size={14} />
+                            {brandingSaveStatus === 'saving' ? 'Saving...' : isBrandingDirty ? 'Save & Activate' : 'Branding Saved'}
+                        </button>
                     </div>
                 </div>
             </CardContent>

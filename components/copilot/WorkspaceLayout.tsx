@@ -94,7 +94,7 @@ export default function WorkspaceLayout({ initialPatientId, initialReportId }: W
 
         // Switch to DICOM tab when we have annotation/segmentation actions
         const hasVisualActions = actions.some(
-            (a) => a.type === "annotation" || a.type === "segmentation" || a.type === "navigate"
+            (a) => a.type === "annotation" || a.type === "segmentation" || a.type === "navigate" || a.type === "viewport"
         );
         if (hasVisualActions) {
             setActiveTab("dicom");

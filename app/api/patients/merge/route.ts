@@ -42,7 +42,7 @@ export async function POST(req: Request) {
                     await db.update(reports).set({ patientId: pId }).where(eq(reports.id, r.id));
                     migratedCount++;
                 } catch(err) {
-                    console.error("[OpenRad] Migration error on report", r.id, err);
+                    console.error("[OmniRad] Migration error on report", r.id, err);
                 }
             }
             

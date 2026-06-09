@@ -4,6 +4,7 @@ import { CheckCircle, XCircle } from "lucide-react";
 
 interface ReportTemplateProps {
     report: ReportData;
+    logoUrl?: string;
 }
 
 /**
@@ -13,7 +14,7 @@ interface ReportTemplateProps {
  * to ensure 100% compatibility with html2pdf.js / html2canvas.
  * It avoids CSS Grid, Flexbox, and modern CSS variables.
  */
-export const PdfStandardTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
+export const PdfStandardTemplate: React.FC<ReportTemplateProps> = ({ report, logoUrl }) => {
     // Helper for safe styles
     const styles = {
         container: {
@@ -111,6 +112,11 @@ export const PdfStandardTemplate: React.FC<ReportTemplateProps> = ({ report }) =
             <table style={styles.headerTable}>
                 <tbody>
                     <tr>
+                        {logoUrl && (
+                            <td style={{ verticalAlign: 'top', paddingRight: '12px', width: '60px' }}>
+                                <img src={logoUrl} alt="Hospital Logo" style={{ height: '50px', width: 'auto', objectFit: 'contain' }} />
+                            </td>
+                        )}
                         <td style={{ verticalAlign: 'top' }}>
                             <div style={styles.title}>{report.report_header.hospital_name}</div>
                             <div style={styles.subtitle}>{report.report_header.department}</div>
@@ -255,7 +261,7 @@ export const PdfStandardTemplate: React.FC<ReportTemplateProps> = ({ report }) =
     );
 };
 
-export const StandardTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
+export const StandardTemplate: React.FC<ReportTemplateProps> = ({ report, logoUrl }) => {
     // Keep existing StandardTemplate for web view to ensure it looks good on screen
     const urgencyColor = report.urgency === 'Critical' ? '#dc2626' :
         report.urgency === 'Urgent' ? '#ea580c' : '#16a34a';
@@ -265,13 +271,18 @@ export const StandardTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
             {/* 1. Header Section */}
             <div className="p-10 pb-6 border-b-2 border-gray-800">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-4xl font-serif font-bold text-gray-900 tracking-tight uppercase mb-1">
-                            {report.report_header.hospital_name}
-                        </h1>
-                        <p className="text-gray-600 font-medium text-lg font-serif italic">
-                            {report.report_header.department}
-                        </p>
+                    <div className="flex items-start gap-4">
+                        {logoUrl && (
+                            <img src={logoUrl} alt="Hospital Logo" className="h-14 w-auto object-contain" />
+                        )}
+                        <div>
+                            <h1 className="text-4xl font-serif font-bold text-gray-900 tracking-tight uppercase mb-1">
+                                {report.report_header.hospital_name}
+                            </h1>
+                            <p className="text-gray-600 font-medium text-lg font-serif italic">
+                                {report.report_header.department}
+                            </p>
+                        </div>
                     </div>
                     <div className="text-right text-sm text-gray-500 font-medium">
                         <p><span className="font-bold text-gray-700">Report ID:</span> {report.report_header.report_id}</p>
@@ -481,7 +492,7 @@ export const StandardTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
     );
 };
 
-export const ModernTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
+export const ModernTemplate: React.FC<ReportTemplateProps> = ({ report, logoUrl }) => {
     const statusColor = report.report_footer.report_status === 'Approved' ? 'bg-green-100 text-green-800' :
         report.report_footer.report_status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800';
 
@@ -490,9 +501,14 @@ export const ModernTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
             {/* Header - Blue Bar */}
             <div className="bg-slate-900 text-white p-8">
                 <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-wide uppercase">{report.report_header.hospital_name}</h1>
-                        <p className="text-slate-400 font-medium">{report.report_header.department}</p>
+                    <div className="flex items-center gap-4">
+                        {logoUrl && (
+                            <img src={logoUrl} alt="Hospital Logo" className="h-12 w-auto object-contain brightness-0 invert" />
+                        )}
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-wide uppercase">{report.report_header.hospital_name}</h1>
+                            <p className="text-slate-400 font-medium">{report.report_header.department}</p>
+                        </div>
                     </div>
                     <div className="text-right">
                         <div className="inline-block px-3 py-1 bg-slate-800 rounded border border-slate-700 text-xs font-mono mb-1">
@@ -605,14 +621,19 @@ export const ModernTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
     );
 };
 
-export const MinimalTemplate: React.FC<ReportTemplateProps> = ({ report }) => {
+export const MinimalTemplate: React.FC<ReportTemplateProps> = ({ report, logoUrl }) => {
     return (
         <div className="max-w-4xl mx-auto bg-white min-h-full font-sans text-sm p-8 html2pdf__page-break" id="report-full-content-minimal">
             {/* Minimal Header */}
             <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-2">
-                <div>
-                    <h1 className="font-bold text-xl uppercase tracking-tighter">{report.report_header.hospital_name}</h1>
-                    <p className="text-xs uppercase tracking-widest">{report.report_header.department}</p>
+                <div className="flex items-center gap-3">
+                    {logoUrl && (
+                        <img src={logoUrl} alt="Hospital Logo" className="h-8 w-auto object-contain" />
+                    )}
+                    <div>
+                        <h1 className="font-bold text-xl uppercase tracking-tighter">{report.report_header.hospital_name}</h1>
+                        <p className="text-xs uppercase tracking-widest">{report.report_header.department}</p>
+                    </div>
                 </div>
                 <div className="text-right text-xs font-mono">
                     {report.report_header.report_id} | {new Date(report.report_header.report_date).toLocaleDateString()}

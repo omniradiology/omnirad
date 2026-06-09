@@ -20,7 +20,7 @@ import { generateReportHtml } from "@/lib/reportHtmlGenerator";
  * 5. Clean up
  */
 
-export async function generatePDF(report: ReportData, filename: string, template: 'standard' | 'modern' | 'minimal' = 'standard') {
+export async function generatePDF(report: ReportData, filename: string, template: 'standard' | 'modern' | 'minimal' = 'standard', logoUrl?: string) {
     if (!report) {
         alert('Invalid report data.');
         return;
@@ -32,7 +32,7 @@ export async function generatePDF(report: ReportData, filename: string, template
     const html2pdf = html2pdfModule.default || html2pdfModule;
 
     // 1. Generate the Clean HTML (pure inline styles, no Tailwind)
-    const htmlContent = generateReportHtml(report, template);
+    const htmlContent = generateReportHtml(report, template, logoUrl);
 
     // 2. Create a hidden iframe for COMPLETE CSS isolation
     const iframe = document.createElement('iframe');
