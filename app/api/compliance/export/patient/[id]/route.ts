@@ -19,20 +19,20 @@ export async function POST(
         const { id } = await params;
 
         // Get patient data
-        const patient = await db.select().from(patients).where(eq(patients.id, id)).limit(1);
+        const patient = db.select().from(patients).where(eq(patients.id, id)).limit(1).all();
         if (patient.length === 0) {
             return NextResponse.json({ error: "Patient not found" }, { status: 404 });
         }
 
         // Get all reports for this patient
-        const patientReports = await db.select({
+        const patientReports = db.select({
             id: reports.id,
             modality: reports.modality,
             urgency: reports.urgency,
             reportStatus: reports.reportStatus,
             reportData: reports.reportData,
             createdAt: reports.createdAt,
-        }).from(reports).where(eq(reports.patientId, id));
+        }).from(reports).where(eq(reports.patientId, id)).all();
 
         const parsedReports = patientReports.map(r => {
             let reportData: any = {};

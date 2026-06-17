@@ -146,3 +146,94 @@ export const chatMessages = sqliteTable("chat_messages", {
     patientId: text("patient_id"),
     createdAt: text("created_at").default("CURRENT_TIMESTAMP"),
 });
+
+// ─── Compliance Settings Table (singleton) ───────────────────────────────────
+export const complianceSettings = sqliteTable("compliance_settings", {
+    id: integer("id").primaryKey().default(1),
+    dataRetentionDays: integer("data_retention_days").default(2555),
+    auditRetentionDays: integer("audit_retention_days").default(2555),
+    sessionTimeoutMinutes: integer("session_timeout_minutes").default(15),
+    idleTimeoutMinutes: integer("idle_timeout_minutes").default(30),
+    enableGdprExport: integer("enable_gdpr_export", { mode: 'boolean' }).default(true),
+    enableGdprAnonymize: integer("enable_gdpr_anonymize", { mode: 'boolean' }).default(true),
+    enableGdprRestriction: integer("enable_gdpr_restriction", { mode: 'boolean' }).default(true),
+    legalBasis: text("legal_basis").default("legitimate_interest"),
+    privacyPolicyUrl: text("privacy_policy_url"),
+    dpoContactEmail: text("dpo_contact_email"),
+    updatedAt: text("updated_at"),
+});
+
+// ─── FHIR Integration Config Table (singleton) ──────────────────────────────
+export const fhirIntegrationConfig = sqliteTable("fhir_integration_config", {
+    id: integer("id").primaryKey().default(1),
+    enabled: integer("enabled", { mode: 'boolean' }).default(false),
+    publicBaseUrl: text("public_base_url").default(""),
+    authMode: text("auth_mode").default("bearer_token"),
+    inboundServiceRequestEnabled: integer("inbound_service_request_enabled", { mode: 'boolean' }).default(false),
+    outboundReadEnabled: integer("outbound_read_enabled", { mode: 'boolean' }).default(true),
+    externalFhirBaseUrl: text("external_fhir_base_url").default(""),
+    externalFhirAuthType: text("external_fhir_auth_type").default("none"),
+    externalFhirClientId: text("external_fhir_client_id").default(""),
+    externalFhirClientSecret: text("external_fhir_client_secret"),
+    externalFhirBearerToken: text("external_fhir_bearer_token"),
+    apiTokenHash: text("api_token_hash"),
+    createdAt: text("created_at"),
+    updatedAt: text("updated_at"),
+});
+
+// ─── Worklist Orders Table (FHIR ServiceRequest inbound) ─────────────────────
+export const worklistOrders = sqliteTable("worklist_orders", {
+    id: text("id").primaryKey(),
+    sourceSystem: text("source_system").default("FHIR"),
+    fhirServiceRequestId: text("fhir_service_request_id"),
+    patientId: text("patient_id").references(() => patients.id, { onDelete: 'cascade' }),
+    patientName: text("patient_name"),
+    patientIdentifier: text("patient_identifier"),
+    status: text("status").default("active"),
+    intent: text("intent").default("order"),
+    priority: text("priority").default("routine"),
+    urgency: text("urgency").default("Routine"),
+    modality: text("modality"),
+    requestedProcedure: text("requested_procedure"),
+    reason: text("reason"),
+    authoredOn: text("authored_on"),
+    requesterDisplay: text("requester_display"),
+    rawFhir: text("raw_fhir"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at"),
+});
+
+// ─── Patient Privacy Controls Table (GDPR compliance tracking) ───────────────
+export const patientPrivacyControls = sqliteTable("patient_privacy_controls", {
+    id: text("id").primaryKey(),
+    patientId: text("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+    restriction: text("restriction"),
+    consentStatus: text("consent_status"),
+    anonymizedAt: text("anonymized_at"),
+    anonymizedBy: text("anonymized_by"),
+    lastExportedAt: text("last_exported_at"),
+    lastExportedBy: text("last_exported_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at"),
+});
+
+// ─── Audit Logs Table ────────────────────────────────────────────────────────
+export const auditLogs = sqliteTable("audit_logs", {
+    id: text("id").primaryKey(),
+    actorUserId: text("actor_user_id"),
+    actorRole: text("actor_role"),
+    actorType: text("actor_type").default("user"),
+    action: text("action").notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: text("resource_id"),
+    patientId: text("patient_id"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    success: integer("success", { mode: 'boolean' }).default(true),
+    reason: text("reason"),
+    metadata: text("metadata"), // JSON string
+    createdAt: text("created_at").notNull(),
+});
+
+
+

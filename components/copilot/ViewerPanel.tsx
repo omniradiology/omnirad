@@ -15,7 +15,7 @@ interface ViewerPanelProps {
     currentPatientId: string | null;
     onReportSelect: (reportId: string) => void;
     onPatientContext: (patientId: string, patientName?: string) => void;
-    viewerRef?: React.RefObject<CopilotViewerRef>;
+    viewerRef?: React.RefObject<CopilotViewerRef | null>;
 }
 
 interface ReportData {
@@ -206,7 +206,7 @@ export default function ViewerPanel({
 }
 
 // ─── DICOM Tab ───────────────────────────────────────────────────────────────
-function DicomTab({ reportData, currentSlice, viewerRef }: { reportData: ReportData | null; currentSlice: number; viewerRef?: React.RefObject<CopilotViewerRef> }) {
+function DicomTab({ reportData, currentSlice, viewerRef }: { reportData: ReportData | null; currentSlice: number; viewerRef?: React.RefObject<CopilotViewerRef | null> }) {
     const imageData = reportData?.reportData?.image_data || reportData?.imageData;
     const imagesData = reportData?.reportData?.images_data;
 

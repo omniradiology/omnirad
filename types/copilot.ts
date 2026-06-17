@@ -31,7 +31,7 @@ export interface AIChatResponse {
 export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';
-    content: string;
+    content: string | any[];
     viewerActions?: ViewerAction[];
     references?: Reference[];
     timestamp: string;

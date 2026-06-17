@@ -57,10 +57,10 @@ async function runTests() {
         if (logs.length > 0) {
             assert(logs[0].actorRole === "Admin", "Actor role was saved");
             assert(logs[0].patientId === testPatientId, "Patient ID was saved");
-            assert(logs[0].success === 1, "Success flag was set to 1");
+            assert(logs[0].success === true, "Success flag was set to true");
             
             // Check metadata PHI stripping
-            const savedMetadata = JSON.parse(logs[0].metadataJson || "{}");
+            const savedMetadata = JSON.parse(logs[0].metadata || "{}");
             assert(savedMetadata.phiData === undefined, "Unsafe metadata keys (PHI) were stripped");
             assert(savedMetadata.safeData === undefined, "safeData is not a whitelisted key so it was stripped");
         }
@@ -82,9 +82,9 @@ async function runTests() {
                 auditRetentionDays: 2555,
                 sessionTimeoutMinutes: 15,
                 idleTimeoutMinutes: 30,
-                enableGdprExport: 1, // SQLite integers for booleans
-                enableGdprRestriction: 1,
-                enableGdprAnonymize: 1,
+                enableGdprExport: true,
+                enableGdprRestriction: true,
+                enableGdprAnonymize: true,
                 legalBasis: "legitimate_interest",
                 updatedAt: new Date().toISOString()
             });
@@ -93,7 +93,7 @@ async function runTests() {
         
         assert(settings.length > 0, "Compliance settings table is accessible and has data");
         if (settings.length > 0) {
-            assert(settings[0].dataRetentionDays >= 365, "Data retention is at least 1 year");
+            assert((settings[0].dataRetentionDays ?? 0) >= 365, "Data retention is at least 1 year");
         }
 
         console.log(`\nVerification Complete! Passed: ${passed}, Failed: ${failed}`);

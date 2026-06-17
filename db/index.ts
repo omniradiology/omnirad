@@ -165,6 +165,72 @@ if (!globalForDb.__omniradSqlite) {
             patient_id TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS compliance_settings (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            data_retention_days INTEGER DEFAULT 2555,
+            audit_retention_days INTEGER DEFAULT 2555,
+            session_timeout_minutes INTEGER DEFAULT 15,
+            idle_timeout_minutes INTEGER DEFAULT 30,
+            enable_gdpr_export INTEGER DEFAULT 1,
+            enable_gdpr_anonymize INTEGER DEFAULT 1,
+            enable_gdpr_restriction INTEGER DEFAULT 1,
+            legal_basis TEXT DEFAULT 'legitimate_interest',
+            privacy_policy_url TEXT,
+            dpo_contact_email TEXT,
+            updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS fhir_integration_config (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            enabled INTEGER DEFAULT 0,
+            public_base_url TEXT DEFAULT '',
+            auth_mode TEXT DEFAULT 'bearer_token',
+            inbound_service_request_enabled INTEGER DEFAULT 0,
+            outbound_read_enabled INTEGER DEFAULT 1,
+            external_fhir_base_url TEXT DEFAULT '',
+            external_fhir_auth_type TEXT DEFAULT 'none',
+            external_fhir_client_id TEXT DEFAULT '',
+            external_fhir_client_secret TEXT,
+            external_fhir_bearer_token TEXT,
+            api_token_hash TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS worklist_orders (
+            id TEXT PRIMARY KEY,
+            source_system TEXT DEFAULT 'FHIR',
+            fhir_service_request_id TEXT,
+            patient_id TEXT REFERENCES patients(id) ON DELETE CASCADE,
+            patient_name TEXT,
+            patient_identifier TEXT,
+            status TEXT DEFAULT 'active',
+            intent TEXT DEFAULT 'order',
+            priority TEXT DEFAULT 'routine',
+            urgency TEXT DEFAULT 'Routine',
+            modality TEXT,
+            requested_procedure TEXT,
+            reason TEXT,
+            authored_on TEXT,
+            requester_display TEXT,
+            raw_fhir TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS patient_privacy_controls (
+            id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            restriction TEXT,
+            consent_status TEXT,
+            anonymized_at TEXT,
+            anonymized_by TEXT,
+            last_exported_at TEXT,
+            last_exported_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT
+        );
     `);
 
         // ─── Migrations for existing databases ──────────────────────────────
