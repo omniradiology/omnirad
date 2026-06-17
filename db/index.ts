@@ -229,6 +229,25 @@ if (!globalForDb.__omniradSqlite) {
             }
         } catch (migErr) { /* ignore */ }
 
+        // Ensure PACS columns exist on the config table (migration for databases created before PACS support)
+        try {
+            const cfgCols = globalForDb.__omniradSqlite!.pragma('table_info(config)') as any[];
+            const addIfMissing = (col: string, def: string) => {
+                if (!cfgCols.some((c: any) => c.name === col)) {
+                    globalForDb.__omniradSqlite!.exec(`ALTER TABLE config ADD COLUMN ${col} TEXT DEFAULT '${def}';`);
+                    console.log(`[OmniRad Db] Migrated: Added ${col} column to config table.`);
+                }
+            };
+            addIfMissing('pacs_orthanc_url', '');
+            addIfMissing('pacs_auth_type', 'none');
+            addIfMissing('pacs_username', '');
+            addIfMissing('pacs_password', '');
+            addIfMissing('pacs_bearer_token', '');
+            addIfMissing('pacs_ae_title', '');
+        } catch (migErr) {
+            console.warn('[OmniRad Db] Migration check for config PACS columns skipped:', migErr);
+        }
+
         // Add purpose, langsmith_api_key, langsmith_project columns to ai_configurations
         try {
             const aiCols = globalForDb.__omniradSqlite!.pragma('table_info(ai_configurations)') as any[];

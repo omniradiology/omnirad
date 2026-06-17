@@ -10,7 +10,9 @@ import { AIConfigPanel } from "@/components/dashboard/AIConfigPanel"
 import { CopilotConfigPanel } from "@/components/dashboard/CopilotConfigPanel"
 import { SegmentationConfigPanel } from "@/components/dashboard/SegmentationConfigPanel"
 import { FhirIntegrationPanel } from "@/components/dashboard/FhirIntegrationPanel"
+import { SupabaseIntegrationPanel } from "@/components/dashboard/SupabaseIntegrationPanel"
 import { SecurityPanel } from "@/components/settings/SecurityPanel"
+import { resetSupabaseClient } from "@/lib/supabase"
 
 type SettingsSection = "appearance" | "users" | "security" | "ai" | "integrations" | "storage"
 
@@ -85,6 +87,8 @@ export default function SettingsPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'config', data: config }),
         });
+        // Reset cached Supabase client so new credentials take effect immediately
+        resetSupabaseClient();
         setIsSaved(true);
         setTimeout(() => setIsSaved(false), 2000);
     };
@@ -213,6 +217,17 @@ export default function SettingsPage() {
                     {/* Integrations Section */}
                     {activeSection === "integrations" && (
                         <div className="space-y-6">
+                            {/* Supabase Cloud Sync */}
+                            <SupabaseIntegrationPanel
+                                supabaseUrl={config.supabaseUrl}
+                                supabaseAnonKey={config.supabaseAnonKey}
+                                onConfigChange={(field, value) => {
+                                    setConfig(prev => ({ ...prev, [field]: value }));
+                                    setIsSaved(false);
+                                }}
+                                onSave={handleSave}
+                            />
+
                             {/* PACS / Orthanc Configuration */}
                             <Card className="bg-bg-surface border-border-primary">
                                 <CardHeader>
