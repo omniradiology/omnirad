@@ -2,7 +2,13 @@
   "name": "@omniradiology/omni-rad",
   "version": "0.1.0",
   "description": "OmniRad — AI-powered radiology platform with DICOM viewer and intelligent reporting",
-  "keywords": ["radiology", "dicom", "medical-imaging", "ai", "healthcare"],
+  "keywords": [
+    "radiology",
+    "dicom",
+    "medical-imaging",
+    "ai",
+    "healthcare"
+  ],
   "license": "MIT",
   "author": "OmniRad Team",
   "repository": {
@@ -41,6 +47,7 @@
     "clsx": "^2.1.1",
     "dicom-parser": "^1.8.21",
     "drizzle-orm": "^0.45.1",
+    "fhir-kit-client": "^2.0.2",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
