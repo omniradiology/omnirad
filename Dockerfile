@@ -2,11 +2,15 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy dependency manifests
+# Install build tools for native dependencies like better-sqlite3
+RUN apk add --no-cache python3 make g++
+
+# Copy dependency manifests and scripts (for postinstall)
 COPY package.json package-lock.json ./
+COPY scripts/ scripts/
 
 # Install production + dev dependencies (need dev for build)
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 # ── Stage 2: Build the application ──
 FROM node:20-alpine AS builder
