@@ -1,0 +1,63 @@
+# Dependencies
+node_modules
+ai_service/.venv
+
+# Build output
+.next
+.turbo
+
+# Git
+.git
+.gitignore
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database (don't include local dev db in image)
+sqlite.db
+*.db-journal
+
+# Documentation & plans (not needed at runtime)
+*.md
+!README.md
+LangGraph-migration.md
+copilot-annaotation-plan.md
+hl7-fhir-integration-plan.md
+omnirad-hipaa-gdpr-compliance-plan.md
+omnirad_Copilot- Plan-code.md
+omnirad_Copilot- Plan.md
+OmniRad guidlines.md
+
+# Test files
+test_api.py
+test_order.json
+patient_export_*.json
+
+# Old code
+old_omnirad
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI/CD
+.github
+
+# Logs
+*.log
+build.log
+
+# Temp files
+temp_*.js
+migrate_*.js
+
+# Supabase (managed separately)
+supabase

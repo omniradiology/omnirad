@@ -1,0 +1,170 @@
+###############################################################################
+# Release — Continuous Deployment
+# Runs when you push a version tag (e.g., v1.0.0)
+#
+# How to trigger:
+#   npm version patch    # bumps version and creates git tag
+#   git push origin main --tags
+#
+# Or manually:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+###############################################################################
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # Matches: v1.0.0, v0.2.1, v2.0.0-beta.1, etc.
+
+# Ensure only one release runs at a time
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOCKERHUB_WEB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/omnirad-web
+  DOCKERHUB_AI_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/omnirad-ai
+
+jobs:
+  # ── Run CI checks first ──
+  ci:
+    name: CI Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Type-check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build Next.js application
+        run: npm run build
+
+  # ── Push Docker Images to Docker Hub ──
+  docker:
+    name: Push Docker Images
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Build & Push: Next.js Web App ──
+      - name: Build & push Next.js image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_WEB_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.DOCKERHUB_WEB_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      # ── Build & Push: AI Service ──
+      - name: Build & push AI Service image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ai_service
+          file: ./ai_service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_AI_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.DOCKERHUB_AI_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ── Publish to npm Registry ──
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js with npm registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Create GitHub Release ──
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [docker, npm]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history for release notes
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "OmniRad v${{ steps.version.outputs.VERSION }}"
+          generate_release_notes: true
+          body: |
+            ## 🐳 Docker Images
+            ```bash
+            docker pull ${{ env.DOCKERHUB_WEB_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            docker pull ${{ env.DOCKERHUB_AI_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            ```
+
+            ## 📦 npm
+            ```bash
+            npm install @omniradiology/omni-rad@${{ steps.version.outputs.VERSION }}
+            ```
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}

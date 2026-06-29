@@ -1,6 +1,26 @@
 {
-  "name": "omni-rad",
+  "name": "@omniradiology/omni-rad",
   "version": "0.1.0",
+  "description": "OmniRad — AI-powered radiology platform with DICOM viewer and intelligent reporting",
+  "keywords": ["radiology", "dicom", "medical-imaging", "ai", "healthcare"],
+  "license": "MIT",
+  "author": "OmniRad Team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/omniradiology/omnirad.git"
+  },
+  "files": [
+    "app",
+    "components",
+    "lib",
+    "types",
+    "public",
+    "db",
+    "data",
+    "next.config.ts",
+    "tsconfig.json",
+    "drizzle.config.ts"
+  ],
   "scripts": {
     "dev": "concurrently -k -n \"NEXT,AI\" -c \"cyan,magenta\" \"npm run dev:next\" \"npm run dev:ai\"",
     "dev:next": "next dev --webpack",

@@ -1,0 +1,27 @@
+services:
+  # ── Next.js Frontend ──
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - ai-service
+    restart: unless-stopped
+
+  # ── Python AI Service ──
+  ai-service:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Add your AI service env vars here:
+      # - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped

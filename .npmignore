@@ -1,0 +1,42 @@
+# AI Service (separate package)
+ai_service
+
+# Documentation & plans
+LangGraph-migration.md
+copilot-annaotation-plan.md
+hl7-fhir-integration-plan.md
+omnirad-hipaa-gdpr-compliance-plan.md
+omnirad_Copilot- Plan-code.md
+omnirad_Copilot- Plan.md
+OmniRad guidlines.md
+OmniRad
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Database
+sqlite.db
+*.db-journal
+
+# Test & temp files
+test_api.py
+test_order.json
+patient_export_*.json
+temp_*.js
+migrate_*.js
+build.log
+
+# Old code
+old_omnirad
+
+# IDE / Editor
+.vscode
+.idea
+
+# CI/CD
+.github
+
+# Dev assets
+supabase
