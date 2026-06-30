@@ -24,8 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOCKERHUB_WEB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/omnirad-web
-  DOCKERHUB_AI_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/omnirad-ai
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/omnirad
 
 jobs:
   # ── Run CI checks first ──
@@ -80,30 +79,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ── Build & Push: Next.js Web App ──
-      - name: Build & push Next.js image
+      # ── Build & Push: Unified OmniRad Image ──
+      - name: Build & push OmniRad image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKERHUB_WEB_IMAGE }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.DOCKERHUB_WEB_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-
-      # ── Build & Push: AI Service ──
-      - name: Build & push AI Service image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./ai_service
-          file: ./ai_service/Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_AI_IMAGE }}:${{ steps.version.outputs.VERSION }}
-            ${{ env.DOCKERHUB_AI_IMAGE }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.DOCKERHUB_IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
@@ -158,10 +143,10 @@ jobs:
           name: "OmniRad v${{ steps.version.outputs.VERSION }}"
           generate_release_notes: true
           body: |
-            ## 🐳 Docker Images
+            ## 🐳 Docker
             ```bash
-            docker pull ${{ env.DOCKERHUB_WEB_IMAGE }}:${{ steps.version.outputs.VERSION }}
-            docker pull ${{ env.DOCKERHUB_AI_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            docker pull ${{ env.DOCKERHUB_IMAGE }}:${{ steps.version.outputs.VERSION }}
+            docker run -p 3000:3000 -p 8000:8000 ${{ env.DOCKERHUB_IMAGE }}:${{ steps.version.outputs.VERSION }}
             ```
 
             ## 📦 npm
