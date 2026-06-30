@@ -78,22 +78,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Next.js Docker image (no push)
+      - name: Build OmniRad Docker image (no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: false
-          tags: omnirad-web:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build AI Service Docker image (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./ai_service
-          file: ./ai_service/Dockerfile
-          push: false
-          tags: omnirad-ai:test
+          tags: omnirad:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
