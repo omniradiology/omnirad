@@ -1,6 +1,6 @@
 {
   "name": "@omniradiology/omni-rad",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "OmniRad — AI-powered radiology platform with DICOM viewer and intelligent reporting",
   "keywords": [
     "radiology",
