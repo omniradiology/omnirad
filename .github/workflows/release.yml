@@ -151,7 +151,7 @@ jobs:
 
             ## 📦 npm
             ```bash
-            npm install @omniradiology/omni-rad@${{ steps.version.outputs.VERSION }}
+            npm install @omniradiology/omnirad@${{ steps.version.outputs.VERSION }}
             ```
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
